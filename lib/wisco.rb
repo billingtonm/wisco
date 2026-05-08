@@ -1,4 +1,5 @@
 require 'json'
+require 'thor'
 require_relative 'wisco/version'
 
 module Wisco
@@ -14,111 +15,69 @@ require_relative 'wisco/commands/list'
 require_relative 'wisco/commands/exec'
 
 module Wisco
-  module_function
+  class CLI < Thor
+    package_name DISPLAY_NAME
 
-  def start(argv = ARGV)
-    if Gem.win_platform?
-      $stdout.binmode
-      $stdout.set_encoding('UTF-8')
-    end
-
-    command = argv.shift
-
-    case command
-    when nil
-      usage
-      exit 1
-    when '--help', '-h'
-      usage
-    when '--version', '-v'
-      puts "#{DISPLAY_NAME} v#{VERSION}"
-    when 'init'
-      target = argv.shift || Dir.pwd
-      Wisco::Commands::Init.run(target)
-    when 'list'
-      subcommand = argv.shift
-      if subcommand && subcommand.match?(%r{^[./~\\]|^[A-Za-z]:[/\\]})
-        target = subcommand
-        subcommand = nil
+    # Rewrite `wisco <command> --help` → `wisco help <command>` so Thor shows
+    # per-command help instead of treating --help as a positional argument.
+    def self.start(given_args = ARGV, config = {})
+      if given_args.length >= 2 &&
+         (given_args.include?('--help') || given_args.include?('-h')) &&
+         !given_args.first.start_with?('-')
+        super(['help', given_args.first], config)
       else
-        target = argv.shift || Dir.pwd
+        super
       end
-      target ||= Dir.pwd
-      Wisco::Commands::List.run(subcommand, target)
-    when 'exec'
-      flags      = argv.select { |a| a.start_with?('--') }
-      positional = argv.reject { |a| a.start_with?('--') }
-
-      path_arg = positional.shift
-      if path_arg.nil?
-        warn "Error: 'exec' requires a path argument (e.g. actions.get_users, actions, get_users)."
-        warn "Run '#{CLI_NAME} --help' for usage."
-        exit 1
-      end
-
-      raw_target = positional.shift
-      target = if raw_target && raw_target.match?(%r{^[./~\\]|^[A-Za-z]:[/\\]})
-                 raw_target
-               else
-                 Dir.pwd
-               end
-
-      mode_flag      = flags.find { |f| f.start_with?('--mode=') }
-      mode           = mode_flag&.split('=', 2)&.last
-      overwrite_flag = flags.find { |f| f.start_with?('--overwrite=') }
-      overwrite      = overwrite_flag&.split('=', 2)&.last == 'true'
-      input_flag     = flags.find { |f| f.start_with?('--input=') }
-      input          = input_flag&.split('=', 2)&.last
-      debug          = flags.include?('--debug')
-
-      Wisco::Commands::Exec.run(path_arg, mode, target, overwrite: overwrite, input: input, debug: debug)
-    else
-      warn "Error: Unknown command '#{command}'"
-      warn "Run '#{CLI_NAME} --help' for usage."
-      exit 1
     end
-  end
 
-  def usage
-    puts <<~USAGE
-      #{DISPLAY_NAME} v#{VERSION}
+    map %w[--version -v] => :version
+    desc 'version', 'Show version'
+    def version
+      puts "#{DISPLAY_NAME} v#{VERSION}"
+    end
 
-      Usage:
-        #{CLI_NAME} <command> [options]
+    desc 'init [PATH]', "Detect connector and create/update #{CONFIG_FILENAME}"
+    long_desc "Searches PATH (default: current directory) for a valid connector file and writes #{CONFIG_FILENAME}."
+    def init(path = nil)
+      Wisco::Commands::Init.run(path || Dir.pwd)
+    end
 
-      Commands:
-        init [path]              Detect connector file and create/update #{CONFIG_FILENAME}.
-                                 Defaults to the current directory.
+    desc 'list [SUBCOMMAND] [PATH]', 'Show connector structure'
+    long_desc <<~DESC
+      Shows a tree overview by default. SUBCOMMAND can be:
+        actions   List all actions as a markdown table
+        triggers  List all triggers as a markdown table
+        all       Show tree + actions + triggers
+      PATH defaults to the current directory.
+    DESC
+    def list(subcommand = nil, path = nil)
+      if subcommand&.match?(%r{^[./~\\]|^[A-Za-z]:[/\\]})
+        path = subcommand
+        subcommand = nil
+      end
+      Wisco::Commands::List.run(subcommand, path || Dir.pwd)
+    end
 
-        list [path]              Show a tree overview of the connector structure.
-        list actions [path]      List all actions as a markdown table.
-        list triggers [path]     List all triggers as a markdown table.
-        list all [path]          Show tree + actions + triggers.
-
-        exec <path> [target_dir]
-                                 Execute connector methods (default mode).
-                                 Runs each ready execute_* file in
-                                 fixtures/<section>/<key>/.
-
-        exec <path> --mode=fields [target_dir]
-                                 Fetch input_fields and output_fields.
-
-                                 <path> forms:
-                                   actions.get_users   one key in a known section
-                                   actions             all keys in that section
-                                   get_users           auto-detect section
-
-                                 Options:
-                                   --mode=execute      execute action/trigger (default)
-                                   --mode=fields       fetch input/output fields
-                                   --input=file.json   specific input file (execute mode)
-                                   --overwrite=true    overwrite execute_input.json template
-                                   --debug             print ExecCommand call details
-
-      Options:
-        --help, -h     Show this help message.
-        --version, -v  Show version.
-
-    USAGE
+    desc 'exec PATH [TARGET_DIR]', 'Execute connector methods against fixture data'
+    long_desc <<~DESC
+      PATH forms:
+        actions.get_users   one key in a known section
+        actions             all keys in that section
+        get_users           auto-detect section
+    DESC
+    option :mode,      type: :string,  default: 'execute', desc: 'execute or fields', enum: %w[execute fields]
+    option :input,     type: :string,  desc: 'Specific input file (execute mode only)'
+    option :overwrite, type: :boolean, default: false, desc: 'Overwrite execute_input.json template'
+    option :debug,     type: :boolean, default: false, desc: 'Print ExecCommand call details'
+    def exec(path_arg, target_dir = nil)
+      Wisco::Commands::Exec.run(
+        path_arg,
+        options[:mode],
+        target_dir || Dir.pwd,
+        overwrite: options[:overwrite],
+        input:     options[:input],
+        debug:     options[:debug]
+      )
+    end
   end
 end
