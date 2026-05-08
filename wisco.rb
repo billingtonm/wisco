@@ -1,3 +1,3 @@
 $LOAD_PATH.unshift File.join(__dir__, 'lib')
 require 'wisco'
-Wisco.start
+Wisco::CLI.start(ARGV)
