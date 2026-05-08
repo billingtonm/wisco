@@ -1,4 +1,3 @@
-require 'bundler/setup'
 require 'fileutils'
 require 'thor'
 require 'workato/connector/sdk'
