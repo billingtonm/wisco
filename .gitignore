@@ -1,0 +1,3 @@
+# Ignore build and documentation specs
+build-specs/
+doc-specs/
