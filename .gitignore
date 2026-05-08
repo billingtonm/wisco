@@ -6,5 +6,5 @@ doc-specs/
 *.gem
 
 # Other interlopers
-.claude/*
-.ruby-lsp/*
+.claude/
+.ruby-lsp/
