@@ -13,6 +13,7 @@ require_relative 'wisco/connector'
 require_relative 'wisco/commands/init'
 require_relative 'wisco/commands/list'
 require_relative 'wisco/commands/exec'
+require_relative 'wisco/commands/fixtures'
 
 module Wisco
   class CLI < Thor
@@ -61,22 +62,42 @@ module Wisco
 
     desc 'exec PATH [TARGET_DIR]', 'Execute connector methods against fixture data'
     long_desc <<~DESC
+      Runs each ready execute_* file in fixtures/<section>/<key>/.
+      Run `wisco fixtures PATH` first to generate fixture templates.
+
       PATH forms:
         actions.get_users   one key in a known section
         actions             all keys in that section
         get_users           auto-detect section
     DESC
-    option :mode,      type: :string,  default: 'execute', desc: 'execute or fields', enum: %w[execute fields]
-    option :input,     type: :string,  desc: 'Specific input file (execute mode only)'
-    option :overwrite, type: :boolean, default: false, desc: 'Overwrite execute_input.json template'
-    option :debug,     type: :boolean, default: false, desc: 'Print ExecCommand call details'
+    option :input, type: :string,  desc: 'Specific input file'
+    option :debug, type: :boolean, default: false, desc: 'Print ExecCommand call details'
     def exec(path_arg, target_dir = nil)
       Wisco::Commands::Exec.run(
         path_arg,
-        options[:mode],
+        target_dir || Dir.pwd,
+        input: options[:input],
+        debug: options[:debug]
+      )
+    end
+
+    desc 'fixtures PATH [TARGET_DIR]', 'Fetch input/output fields and generate fixture templates'
+    long_desc <<~DESC
+      Fetches input_fields and output_fields from the connector and writes them
+      to fixtures/<section>/<key>/. Also generates an execute_input.json template.
+
+      PATH forms:
+        actions.get_users   one key in a known section
+        actions             all keys in that section
+        get_users           auto-detect section
+    DESC
+    option :overwrite, type: :boolean, default: false, desc: 'Overwrite execute_input.json even if user-edited'
+    option :debug,     type: :boolean, default: false, desc: 'Print ExecCommand call details'
+    def fixtures(path_arg, target_dir = nil)
+      Wisco::Commands::Fixtures.run(
+        path_arg,
         target_dir || Dir.pwd,
         overwrite: options[:overwrite],
-        input:     options[:input],
         debug:     options[:debug]
       )
     end
