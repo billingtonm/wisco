@@ -50,12 +50,13 @@ module Wisco
         all       Show tree + actions + triggers
       PATH defaults to the current directory.
     DESC
+    option :sort, type: :string, desc: 'Sort actions/triggers by key or title', enum: %w[key title]
     def list(subcommand = nil, path = nil)
       if subcommand&.match?(%r{^[./~\\]|^[A-Za-z]:[/\\]})
         path = subcommand
         subcommand = nil
       end
-      Wisco::Commands::List.run(subcommand, path || Dir.pwd)
+      Wisco::Commands::List.run(subcommand, path || Dir.pwd, sort: options[:sort])
     end
 
     desc 'exec PATH [TARGET_DIR]', 'Execute connector methods against fixture data'

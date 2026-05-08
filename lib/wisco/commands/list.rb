@@ -8,15 +8,18 @@ module Wisco
       TREE_PIPE = '│   '
       TREE_BLANK = '    '
       EXPANDABLE_KEYS = %i[actions triggers object_definitions methods pick_lists].freeze
+      SORT_FIELDS = %w[key title].freeze
 
       module_function
 
-      def run(subcommand, target)
+      def run(subcommand, target, sort: nil)
+        validate_sort!(sort)
+
         case subcommand
         when nil        then run_tree(target)
-        when 'actions'  then run_actions(target)
-        when 'triggers' then run_triggers(target)
-        when 'all'      then run_all(target)
+        when 'actions'  then run_actions(target, sort: sort)
+        when 'triggers' then run_triggers(target, sort: sort)
+        when 'all'      then run_all(target, sort: sort)
         else
           warn "Error: Unknown list subcommand '#{subcommand}'"
           warn "Run '#{Wisco::CLI_NAME} --help' for usage."
@@ -51,7 +54,7 @@ module Wisco
         end
       end
 
-      def run_actions(target_dir)
+      def run_actions(target_dir, sort: nil)
         connector = Wisco::Connector.load_connector_from_config(target_dir)
         actions = connector[:actions]
 
@@ -60,11 +63,12 @@ module Wisco
           return
         end
 
-        rows = actions.map { |key, item| [title_for(key, item), subtitle_for(item)] }
-        render_markdown_table(%w[Title Subtitle], rows)
+        rows = actions.map { |key, item| [key, title_for(key, item), subtitle_for(item)] }
+        rows = sort_rows(rows, sort)
+        render_markdown_table(%w[Key Title Subtitle], rows)
       end
 
-      def run_triggers(target_dir)
+      def run_triggers(target_dir, sort: nil)
         connector = Wisco::Connector.load_connector_from_config(target_dir)
         triggers = connector[:triggers]
 
@@ -73,19 +77,20 @@ module Wisco
           return
         end
 
-        rows = triggers.map { |key, item| [title_for(key, item), subtitle_for(item)] }
-        render_markdown_table(%w[Title Subtitle], rows)
+        rows = triggers.map { |key, item| [key, title_for(key, item), subtitle_for(item)] }
+        rows = sort_rows(rows, sort)
+        render_markdown_table(%w[Key Title Subtitle], rows)
       end
 
-      def run_all(target_dir)
+      def run_all(target_dir, sort: nil)
         puts '## Overview'
         run_tree(target_dir)
         puts
         puts '## Actions'
-        run_actions(target_dir)
+        run_actions(target_dir, sort: sort)
         puts
         puts '## Triggers'
-        run_triggers(target_dir)
+        run_triggers(target_dir, sort: sort)
       end
 
       # ---------------------------------------------------------------------------
@@ -124,6 +129,20 @@ module Wisco
         puts "| #{format(fmt, *headers)} |"
         puts "|-#{sep}-|"
         rows.each { |r| puts "| #{format(fmt, *r)} |" }
+      end
+
+      def validate_sort!(sort)
+        return if sort.nil? || SORT_FIELDS.include?(sort)
+
+        warn "Error: Unsupported sort field '#{sort}'. Valid values: #{SORT_FIELDS.join(', ')}."
+        exit 1
+      end
+
+      def sort_rows(rows, sort)
+        return rows if sort.nil?
+
+        index = SORT_FIELDS.index(sort)
+        rows.sort_by { |row| [row[index].to_s.downcase, row[0].to_s.downcase] }
       end
 
       # ---------------------------------------------------------------------------
