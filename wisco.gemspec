@@ -15,4 +15,5 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency 'activesupport', '~> 7.0.0'
   spec.add_runtime_dependency 'workato-connector-sdk', '1.3.19'
+  spec.add_runtime_dependency 'thor'
 end

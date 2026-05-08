@@ -1,3 +1,7 @@
 #!/usr/bin/env ruby
+if Gem.win_platform?
+  $stdout.binmode
+  $stdout.set_encoding('UTF-8')
+end
 require 'wisco'
-Wisco.start
+Wisco::CLI.start(ARGV)
