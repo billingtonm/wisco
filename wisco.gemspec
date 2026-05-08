@@ -10,6 +10,9 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
   spec.required_ruby_version = '>= 2.7'
 
+  spec.license       = 'MIT'
+  spec.homepage      = 'https://github.com/billingtonm/wisco'
+
   spec.add_runtime_dependency 'activesupport', '~> 7.0.0'
   spec.add_runtime_dependency 'workato-connector-sdk', '1.3.19'
 end
