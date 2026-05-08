@@ -18,6 +18,18 @@ module Wisco
   class CLI < Thor
     package_name DISPLAY_NAME
 
+    # Rewrite `wisco <command> --help` → `wisco help <command>` so Thor shows
+    # per-command help instead of treating --help as a positional argument.
+    def self.start(given_args = ARGV, config = {})
+      if given_args.length >= 2 &&
+         (given_args.include?('--help') || given_args.include?('-h')) &&
+         !given_args.first.start_with?('-')
+        super(['help', given_args.first], config)
+      else
+        super
+      end
+    end
+
     map %w[--version -v] => :version
     desc 'version', 'Show version'
     def version
