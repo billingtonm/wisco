@@ -132,7 +132,12 @@ module Wisco
         end
 
         cmd = Workato::CLI::ExecCommand.new(path: path, options: options)
-        cmd.call
+        begin
+          cmd.call
+        rescue StandardError => e
+          warn "  Warning: #{path} failed — #{e.message}"
+          return
+        end
 
         return unless File.exist?(output)
 
