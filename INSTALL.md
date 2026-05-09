@@ -29,16 +29,28 @@
 From a WSL terminal, navigate to the project directory and run:
 
 ```bash
-cd "/mnt/c/Users/mbill/OneDrive - innovationquotient.com.au/Documents/Ruby/Workato Connector SDK Helper"
+# Go to wisco source directory
+cd "/path/to/wisco"
 
+# Build the gem into ./pkg and install it locally
+./scripts/build_install.sh
+```
+
+The script runs `bundle install`, builds the gem from the repo root, moves the
+generated artifact into `./pkg`, and installs that exact file locally.
+
+Manual fallback:
+
+```bash
 # Install dependencies (required for native extensions to compile)
 bundle install
 
-# Build the gem
+# Build the gem from the repo root
 gem build wisco.gemspec
 
-# Install the built gem
-gem install wisco-0.1.0.gem
+# Move the built gem into ./pkg and install it
+mv wisco-*.gem ./pkg/
+gem install ./pkg/wisco-*.gem --force
 ```
 
 ### Verify
@@ -53,7 +65,7 @@ wisco --version
 Rebuild and reinstall:
 
 ```bash
-gem build wisco.gemspec && gem install wisco-0.1.0.gem --force
+./scripts/build_install.sh
 ```
 
 ---

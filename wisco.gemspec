@@ -1,12 +1,14 @@
 require_relative 'lib/wisco/version'
 
+ROOT_DIR = __dir__
+
 Gem::Specification.new do |spec|
   spec.name          = 'wisco'
   spec.version       = Wisco::VERSION
   spec.summary       = 'Workato Connector SDK Companion'
   spec.authors       = ['mbillington']
   spec.executables   = ['wisco']
-  spec.files         = Dir['lib/**/*.rb']
+  spec.files         = Dir.chdir(ROOT_DIR) { Dir['bin/*', 'lib/**/*.rb'] }
   spec.require_paths = ['lib']
   spec.required_ruby_version = '>= 2.7'
 
@@ -15,5 +17,5 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency 'activesupport', '~> 7.0.0'
   spec.add_runtime_dependency 'workato-connector-sdk', '1.3.19'
-  spec.add_runtime_dependency 'thor'
+  spec.add_runtime_dependency 'thor', '~> 1.0'
 end
