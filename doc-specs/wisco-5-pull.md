@@ -20,15 +20,14 @@ The following items can be retrieved by the Workato APIs:
 
 All data will be stored in files underneath `./.wisco/pull/` (relative to Connectors working path (per the wisco config)). *If this location does not exist, create it.*
 
+An exception here is for the `logo.png`.
+It will be saved in the connector root **unless** there is already an existing logo.png there. To prevent it from being overwritten, the file will be instead saved in `.wisco/pull`
+
+
 ### Saving Data
 #### API Payload
 The response from the payload will be stored as a file with the filename of `meta.json`
 
-With: 
-
-`endpoint` = the API endpoint called. ie: `search`,  `get`
-
-`datetime` = the current date and time when the data was fetched
 
 #### Code
 The `code` payload is the ruby source code of the remote connector.
