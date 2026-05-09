@@ -14,10 +14,16 @@ require_relative 'wisco/commands/init'
 require_relative 'wisco/commands/list'
 require_relative 'wisco/commands/exec'
 require_relative 'wisco/commands/fixtures'
+require_relative 'wisco/commands/pull'
 
 module Wisco
   class CLI < Thor
     package_name DISPLAY_NAME
+    check_unknown_options!
+
+    def self.exit_on_failure?
+      true
+    end
 
     # Rewrite `wisco <command> --help` → `wisco help <command>` so Thor shows
     # per-command help instead of treating --help as a positional argument.
@@ -99,6 +105,29 @@ module Wisco
         target_dir || Dir.pwd,
         overwrite: options[:overwrite],
         debug:     options[:debug]
+      )
+    end
+
+    desc 'pull [TARGET_DIR]', 'Pull connector from the Workato platform'
+    long_desc <<~DESC
+      Downloads connector data from the Workato Developer API.
+      Saves results to .wisco/pull/ inside the target directory.
+
+      Requires workato_developer_api hostname and api_token in #{CONFIG_FILENAME}.
+      If not set, you will be prompted on first run.
+
+      --what accepts comma-separated values: all, logo, code, versions, meta
+    DESC
+    option :what,  type: :string,  default: 'all',
+                   desc: 'What to retrieve: all, logo, code, versions, meta'
+    option :title, type: :string,  desc: 'Connector title to search for (default: derived from connector file)'
+    option :debug, type: :boolean, default: false, desc: 'Show API call details'
+    def pull(target_dir = nil)
+      Wisco::Commands::Pull.run(
+        target_dir || Dir.pwd,
+        what:  options[:what],
+        title: options[:title],
+        debug: options[:debug]
       )
     end
   end
