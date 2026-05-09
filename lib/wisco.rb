@@ -5,7 +5,12 @@ require_relative 'wisco/version'
 module Wisco
   CLI_NAME        = 'wisco'
   DISPLAY_NAME    = 'Wisco (Workato Connector SDK Companion)'
-  CONFIG_FILENAME = ".#{CLI_NAME}.json"
+  WISCO_DIR       = ".#{CLI_NAME}"
+  CONFIG_FILENAME = 'config.json'
+
+  def self.config_path(target_dir)
+    File.join(target_dir, WISCO_DIR, CONFIG_FILENAME)
+  end
 end
 
 require_relative 'wisco/config'
@@ -43,8 +48,8 @@ module Wisco
       puts "#{DISPLAY_NAME} v#{VERSION}"
     end
 
-    desc 'init [PATH]', "Detect connector and create/update #{CONFIG_FILENAME}"
-    long_desc "Searches PATH (default: current directory) for a valid connector file and writes #{CONFIG_FILENAME}."
+    desc 'init [PATH]', "Detect connector and initialise #{WISCO_DIR}/"
+    long_desc "Searches PATH (default: current directory) for a valid connector file and writes #{WISCO_DIR}/#{CONFIG_FILENAME}."
     def init(path = nil)
       Wisco::Commands::Init.run(path || Dir.pwd)
     end
@@ -113,7 +118,7 @@ module Wisco
       Downloads connector data from the Workato Developer API.
       Saves results to .wisco/pull/ inside the target directory.
 
-      Requires workato_developer_api hostname and api_token in #{CONFIG_FILENAME}.
+      Requires workato_developer_api hostname and api_token in #{WISCO_DIR}/#{CONFIG_FILENAME}.
       If not set, you will be prompted on first run.
 
       --what accepts comma-separated values: all, logo, code, versions, meta

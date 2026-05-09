@@ -1,3 +1,4 @@
+require 'fileutils'
 require_relative '../config'
 require_relative '../connector'
 
@@ -25,8 +26,11 @@ module Wisco
 
         puts "Found connector: #{connector_file}"
 
-        config_path = File.join(target_dir, Wisco::CONFIG_FILENAME)
-        config = Wisco::Config.load_config(config_path)
+        wisco_dir   = File.join(target_dir, Wisco::WISCO_DIR)
+        FileUtils.mkdir_p(wisco_dir)
+
+        config_path = Wisco.config_path(target_dir)
+        config      = Wisco::Config.load_config(config_path)
 
         config['connector'] ||= {}
         config['connector']['path'] = target_dir
@@ -34,6 +38,25 @@ module Wisco
 
         Wisco::Config.save_config(config_path, config)
         puts "Config written to #{config_path}"
+
+        update_gitignore(target_dir)
+      end
+
+      def update_gitignore(target_dir)
+        gitignore_path = File.join(target_dir, '.gitignore')
+        entry          = "#{Wisco::WISCO_DIR}/"
+
+        if File.exist?(gitignore_path)
+          content = File.read(gitignore_path)
+          if content.include?(entry)
+            puts ".gitignore already contains '#{entry}' — no changes made."
+          else
+            File.open(gitignore_path, 'a') { |f| f.puts entry }
+            puts "Added '#{entry}' to .gitignore"
+          end
+        else
+          puts "Note: No .gitignore found — consider adding '#{entry}' manually."
+        end
       end
     end
   end

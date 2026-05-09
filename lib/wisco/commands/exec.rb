@@ -12,10 +12,10 @@ module Wisco
 
       def run(path_arg, target_dir, input: nil, debug: false)
         target_dir = File.expand_path(target_dir)
-        config_path = File.join(target_dir, Wisco::CONFIG_FILENAME)
+        config_path = Wisco.config_path(target_dir)
 
         unless File.exist?(config_path)
-          warn "Error: No #{Wisco::CONFIG_FILENAME} found in #{target_dir}."
+          warn "Error: No #{Wisco::WISCO_DIR}/#{Wisco::CONFIG_FILENAME} found in #{target_dir}."
           warn "       Run '#{Wisco::CLI_NAME} init' first."
           exit 1
         end
@@ -25,7 +25,7 @@ module Wisco
         connector_file = config.dig('connector', 'file')
 
         if connector_path.nil? || connector_file.nil?
-          warn "Error: #{Wisco::CONFIG_FILENAME} is missing connector path/file. Run '#{Wisco::CLI_NAME} init' again."
+          warn "Error: #{Wisco::WISCO_DIR}/#{Wisco::CONFIG_FILENAME} is missing connector path/file. Run '#{Wisco::CLI_NAME} init' again."
           exit 1
         end
 

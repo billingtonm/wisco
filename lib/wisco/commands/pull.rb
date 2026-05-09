@@ -19,10 +19,10 @@ module Wisco
 
       def run(target_dir, what:, title:, debug:)
         target_dir  = File.expand_path(target_dir)
-        config_path = File.join(target_dir, Wisco::CONFIG_FILENAME)
+        config_path = Wisco.config_path(target_dir)
 
         unless File.exist?(config_path)
-          warn "Error: No #{Wisco::CONFIG_FILENAME} found in #{target_dir}."
+          warn "Error: No #{Wisco::WISCO_DIR}/#{Wisco::CONFIG_FILENAME} found in #{target_dir}."
           warn "       Run '#{Wisco::CLI_NAME} init' first."
           exit 1
         end
@@ -32,7 +32,7 @@ module Wisco
         what_list = parse_what(what)
         title   ||= derive_title(target_dir)
 
-        pull_dir = File.join(target_dir, '.wisco', 'pull')
+        pull_dir = File.join(target_dir, Wisco::WISCO_DIR, 'pull')
         FileUtils.mkdir_p(pull_dir)
 
         api = Wisco::WorkatoApi.new(
