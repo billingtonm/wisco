@@ -20,6 +20,7 @@ require_relative 'wisco/commands/list'
 require_relative 'wisco/commands/exec'
 require_relative 'wisco/commands/fixtures'
 require_relative 'wisco/commands/pull'
+require_relative 'wisco/commands/push'
 
 module Wisco
   class CLI < Thor
@@ -110,6 +111,28 @@ module Wisco
         target_dir || Dir.pwd,
         overwrite: options[:overwrite],
         debug:     options[:debug]
+      )
+    end
+
+    desc 'push [TARGET_DIR]', 'Push connector assets to the Workato platform'
+    long_desc <<~DESC
+      Uploads the connector code, logo.png, and README.md to Workato.
+      Requires workato_developer_api hostname and api_token in #{WISCO_DIR}/#{CONFIG_FILENAME}.
+      If not set, you will be prompted on first run.
+    DESC
+    option :title,   type: :string,  desc: 'Connector title (default: from config or connector code)'
+    option :notes,   type: :string,  desc: 'Version notes (prompted if not provided)'
+    option :folder,  type: :numeric, desc: 'Workato folder ID to push connector into'
+    option :verbose, type: :boolean, default: true,  desc: 'Enable detailed SDK logging'
+    option :debug,   type: :boolean, default: false, desc: 'Show push call details'
+    def push(target_dir = nil)
+      Wisco::Commands::Push.run(
+        target_dir || Dir.pwd,
+        title:   options[:title],
+        notes:   options[:notes],
+        folder:  options[:folder],
+        verbose: options[:verbose],
+        debug:   options[:debug]
       )
     end
 
