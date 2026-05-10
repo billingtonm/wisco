@@ -28,7 +28,7 @@ module Wisco
         end
 
         config    = Wisco::Config.load_config(config_path)
-        config    = ensure_api_config(config, config_path)
+        config    = Wisco::Config.ensure_api_config(config, config_path)
         what_list = parse_what(what)
         title   ||= derive_title(target_dir)
 
@@ -86,23 +86,6 @@ module Wisco
       end
 
       # ── helpers ──────────────────────────────────────────────────────────
-
-      def ensure_api_config(config, config_path)
-        api_cfg = config['workato_developer_api'] ||= {}
-
-        if api_cfg['hostname'].nil? || api_cfg['hostname'].strip.empty?
-          print 'Workato API hostname not configured. Enter hostname (e.g. app.au.workato.com): '
-          api_cfg['hostname'] = $stdin.gets.strip
-        end
-
-        if api_cfg['api_token'].nil? || api_cfg['api_token'].strip.empty?
-          print 'Workato API token not configured. Enter your API token: '
-          api_cfg['api_token'] = $stdin.gets.strip
-        end
-
-        Wisco::Config.save_config(config_path, config)
-        config
-      end
 
       def derive_title(target_dir)
         connector = Wisco::Connector.load_connector_from_config(target_dir)
