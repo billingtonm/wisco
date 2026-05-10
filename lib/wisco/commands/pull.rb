@@ -49,6 +49,7 @@ module Wisco
         handle_http_error(status, 'search', title, body: raw_body)
 
         connector   = extract_single(search_data, title)
+        maybe_save_title(connector, config, config_path)
         search_file = File.join(pull_dir, 'meta.json')
         write_json(search_file, search_data)
         puts "Meta:        \t#{search_file}"
@@ -153,6 +154,18 @@ module Wisco
         versions_file = File.join(pull_dir, 'versions.json')
         write_json(versions_file, versions)
         versions_file
+      end
+
+      def maybe_save_title(connector, config, config_path)
+        stored = config.dig('connector', 'title')
+        return unless stored.nil? || stored.strip.empty?
+
+        api_title = connector['title']
+        return unless api_title && !api_title.strip.empty?
+
+        config['connector'] ||= {}
+        config['connector']['title'] = api_title
+        Wisco::Config.save_config(config_path, config)
       end
 
       def write_json(path, data)
