@@ -44,7 +44,7 @@ module Wisco
         notes = resolve_notes(notes)
 
         options = {
-          environment: config.dig('workato_developer_api', 'hostname'),
+          environment: "https://#{config.dig('workato_developer_api', 'hostname')}",
           api_token:   config.dig('workato_developer_api', 'api_token'),
           connector:   connector_file,
           title:       title,
@@ -116,8 +116,13 @@ module Wisco
       def resolve_notes(notes)
         return notes if notes && !notes.strip.empty?
 
-        print 'Version notes (press Enter to leave blank): '
-        $stdin.gets.strip
+        loop do
+          print 'Version notes (required): '
+          value = $stdin.gets.strip
+          return value unless value.empty?
+
+          warn 'Version notes cannot be blank.'
+        end
       end
     end
   end
