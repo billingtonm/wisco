@@ -123,14 +123,22 @@ module Wisco
           exit 1
         end
 
-        if results.size > 1
-          warn "Error: Multiple connectors matched '#{title}':"
-          results.each { |r| warn "  - #{r['title']} (id: #{r['id']}, name: #{r['name']})" }
-          warn "       Use --title with a more specific name."
-          exit 1
+        return results.first if results.size == 1
+
+        # Multiple matches — let the user choose
+        puts "Multiple connectors matched '#{title}':"
+        results.each_with_index do |r, i|
+          puts "  #{i + 1}. #{r['title']} (id: #{r['id']}, name: #{r['name']})"
         end
 
-        results.first
+        loop do
+          print "Enter number to retrieve (1-#{results.size}): "
+          input = $stdin.gets.strip
+          index = input.to_i
+          return results[index - 1] if index >= 1 && index <= results.size
+
+          warn "Invalid selection. Please enter a number between 1 and #{results.size}."
+        end
       end
 
       def handle_http_error(status, context, identifier, body: nil)
