@@ -120,6 +120,14 @@ module Wisco
         end
 
         template = schema_to_template(fields)
+
+        # Merge config_fields.json if present — its keys are prepended to the template
+        cf_file = File.join(fixtures_dir, 'config_fields.json')
+        if File.exist?(cf_file)
+          cf_template = read_json_without_sentinel(cf_file)
+          template = cf_template.merge(template)
+        end
+
         content  = "#{SENTINEL}\n#{JSON.pretty_generate(template)}\n"
         File.write(output_file, content)
         puts "  Written: #{output_file}"
@@ -219,6 +227,14 @@ module Wisco
         content = "#{SENTINEL}\n#{JSON.pretty_generate(template)}\n"
         File.write(output_file, content)
         puts "  Written: #{output_file}"
+      end
+
+      def read_json_without_sentinel(path)
+        lines = File.readlines(path)
+        lines.shift if lines.first&.chomp == SENTINEL
+        JSON.parse(lines.join)
+      rescue StandardError
+        {}
       end
 
       def config_fields_ready?(path)
