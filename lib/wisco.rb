@@ -82,14 +82,17 @@ module Wisco
         actions             all keys in that section
         get_users           auto-detect section
     DESC
-    option :input, type: :string,  desc: 'Specific input file'
-    option :debug, type: :boolean, default: false, desc: 'Print ExecCommand call details'
+    option :input,      type: :string,  desc: 'Specific input file'
+    option :pagination, type: :boolean, default: true,
+                        desc: 'Triggers only: true = .poll (with pagination), false = .poll_page (without)'
+    option :debug,      type: :boolean, default: false, desc: 'Print ExecCommand call details'
     def exec(path_arg, target_dir = nil)
       Wisco::Commands::Exec.run(
         path_arg,
         target_dir || Dir.pwd,
-        input: options[:input],
-        debug: options[:debug]
+        input:      options[:input],
+        pagination: options[:pagination],
+        debug:      options[:debug]
       )
     end
 

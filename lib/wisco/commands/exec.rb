@@ -10,7 +10,7 @@ module Wisco
     module Exec
       module_function
 
-      def run(path_arg, target_dir, input: nil, debug: false)
+      def run(path_arg, target_dir, input: nil, pagination: true, debug: false)
         target_dir = File.expand_path(target_dir)
         config_path = Wisco.config_path(target_dir)
 
@@ -51,7 +51,8 @@ module Wisco
           if input_files.empty?
             if %w[pick_lists methods].include?(section)
               # No-param pick list or method — execute once with no input file
-              execute_one(section, key, nil, fixtures_dir, connector_full_path, connection, debug: debug)
+              execute_one(section, key, nil, fixtures_dir, connector_full_path, connection,
+                          pagination: pagination, debug: debug)
             else
               warn "\tWarning: No ready input files found in #{fixture_dir_output}"
             end
@@ -60,7 +61,7 @@ module Wisco
 
           input_files.each do |input_file|
             execute_one(section, key, input_file, fixtures_dir,
-                        connector_full_path, connection, debug: debug)
+                        connector_full_path, connection, pagination: pagination, debug: debug)
           end
         end
       end
@@ -92,13 +93,20 @@ module Wisco
         first_line == Wisco::Commands::Fixtures::SENTINEL
       end
 
-      def execute_one(section, key, input_file, fixtures_dir, connector_full_path, connection, debug: false)
+      def execute_one(section, key, input_file, fixtures_dir, connector_full_path, connection,
+                      pagination: true, debug: false)
         stem        = input_file ? File.basename(input_file, '.*') : 'execute'
         output_file = File.join(fixtures_dir, "output_#{stem}.json")
         error_file  = File.join(fixtures_dir, "error_#{stem}.txt")
 
         use_args  = %w[pick_lists methods].include?(section)
-        exec_path = use_args ? "#{section}.#{key}" : "#{section}.#{key}.execute"
+        exec_path = if use_args
+                      "#{section}.#{key}"
+                    elsif section == 'triggers'
+                      pagination ? "#{section}.#{key}.poll" : "#{section}.#{key}.poll_page"
+                    else
+                      "#{section}.#{key}.execute"
+                    end
 
         options = { connector: connector_full_path, output: output_file }
         options[:connection] = connection if connection
