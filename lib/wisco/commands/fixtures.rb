@@ -44,6 +44,8 @@ module Wisco
 
           if section == 'pick_lists'
             process_pick_list(key, connector, fixtures_dir, overwrite: overwrite)
+          elsif section == 'methods'
+            process_method(key, connector, fixtures_dir, overwrite: overwrite)
           else
             input_fields_file = File.join(fixtures_dir, 'input_fields.json')
             call_exec(
@@ -122,6 +124,42 @@ module Wisco
                          "<#{type}_value_#{req_str}>"
                        end
         end
+      end
+
+      def process_method(key, connector, fixtures_dir, overwrite: false)
+        method_fn = connector[:methods]&.[](key.to_sym)
+
+        unless method_fn.respond_to?(:parameters)
+          warn "  Warning: method '#{key}' is not callable — skipping."
+          return
+        end
+
+        params = method_fn.parameters   # all params are real inputs (no connection to drop)
+
+        if params.empty?
+          puts "  No input required: #{fixtures_dir}"
+          return
+        end
+
+        output_file = File.join(fixtures_dir, 'execute_input.json')
+
+        if File.exist?(output_file)
+          first_line = begin
+                         File.open(output_file, &:readline).chomp
+                       rescue StandardError
+                         ''
+                       end
+          unless first_line == SENTINEL || overwrite
+            puts "  Skipped (user-edited): #{output_file}"
+            return
+          end
+        end
+
+        # Positional array — each element is the param name as a placeholder string
+        template = params.map { |(_, name)| name.to_s }
+        content  = "#{SENTINEL}\n#{JSON.pretty_generate(template)}\n"
+        File.write(output_file, content)
+        puts "  Written: #{output_file}"
       end
 
       def process_pick_list(key, connector, fixtures_dir, overwrite: false)
