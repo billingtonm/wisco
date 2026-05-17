@@ -49,8 +49,8 @@ module Wisco
           input_files = resolve_input_files(input, fixtures_dir)
 
           if input_files.empty?
-            if section == 'pick_lists'
-              # Static/dynamic pick list — no args needed; execute once with no input file
+            if %w[pick_lists methods].include?(section)
+              # No-param pick list or method — execute once with no input file
               execute_one(section, key, nil, fixtures_dir, connector_full_path, connection, debug: debug)
             else
               warn "\tWarning: No ready input files found in #{fixture_dir_output}"
@@ -97,12 +97,12 @@ module Wisco
         output_file = File.join(fixtures_dir, "output_#{stem}.json")
         error_file  = File.join(fixtures_dir, "error_#{stem}.txt")
 
-        pick_list = (section == 'pick_lists')
-        exec_path = pick_list ? "#{section}.#{key}" : "#{section}.#{key}.execute"
+        use_args  = %w[pick_lists methods].include?(section)
+        exec_path = use_args ? "#{section}.#{key}" : "#{section}.#{key}.execute"
 
         options = { connector: connector_full_path, output: output_file }
         options[:connection] = connection if connection
-        if pick_list
+        if use_args
           options[:args] = input_file if input_file
         else
           options[:input] = input_file
@@ -112,7 +112,7 @@ module Wisco
           warn "[exec] path:       #{exec_path}"
           warn "[exec] connector:  #{connector_full_path}"
           warn "[exec] connection: #{connection.inspect}"
-          warn "[exec] #{pick_list ? 'args' : 'input'}:      #{input_file.inspect}"
+          warn "[exec] #{use_args ? 'args' : 'input'}:      #{input_file.inspect}"
           warn "[exec] output:     #{output_file}"
         end
 

@@ -24,7 +24,7 @@ This is a setup/scaffolding step that must be run before `wisco exec` can be use
 | *key*                | Find the *key* in any section — error if multiple matches found | `get_users`
 
 #### Valid values for `section`
-`actions`, `triggers`, `pick_lists` (new in v0.2.0)
+`actions`, `triggers`, `pick_lists`, `methods` (new in v0.2.2)
 
 (possibly more in future)
 
@@ -35,6 +35,7 @@ wisco fixtures triggers.new_event
 wisco fixtures actions
 wisco fixtures pick_lists
 wisco fixtures actions --overwrite
+wisco fixtures methods
 ```
 
 ## 4.2 Steps
@@ -62,7 +63,18 @@ wisco fixtures actions --overwrite
 
     2. `my_picklist` should be a lambda. If the lambda has <=1 parameters then end. (Parameter 1 will be the `connection` parameter which we don't need to worry about)
 
-    3. Otherwise, if the lambda has >1 parameters, generate an `execute_input.json` for all but the first parameter (which is the `connection` parameter). Each parameter should be assumed to be as string.
+    3. Otherwise, if the lambda has >1 parameters, generate an `execute_input.json` for all but the first parameter (which is the `connection` parameter). Each parameter should be assumed to be a string.
+
+3. If the item is from the section `methods`, (eg: `my_method`)
+
+    1. Ensures directory `./fixtures/methods/my_method/` exists, creating if it doesn't. This is the `output_directory` for this picklist.
+
+    2. `my_method` should be a lambda. If the lambda has 0 parameters then end. (
+
+    3. Otherwise, if the lambda has >=1 parameters, generate an `execute_input.json` for all parameters. Each parameter should be assumed to be a string. 
+
+        - Note that for `methods` `execute_input.json` is an array of values which positionally relate to the parameters. *See below section* **4.5: Fixtures for methods**
+
 
 3. Repeats steps 1–3 for other keys if a *section* was specified as `path`.
 
@@ -165,6 +177,10 @@ It will contain files:
 |   |   ├── action_01
 |   |   ├── action_02
 |   |   └── ... other actions ...
+|   ├── methods
+|   |   ├── methods_01
+|   |   |   └── execute_input.json
+|   |   └── ... other picklists ...
 |   ├── picklists
 |   |   ├── pick_list_01
 |   |   |   └── execute_input.json
@@ -174,3 +190,33 @@ It will contain files:
 |   |   |   ├── execute_input.json
 |   |   |   ├── input_fields.json
 |   |   |   └── output_fields.json
+```
+
+## 4.5 Fixtures for methods
+Note an example set of methods:
+```ruby
+methods: {
+    get_customers: lambda do
+      get('/api/v2/customers')
+    end,
+
+    sample_method: lambda do |string1, string2|
+      string1 + ' ' + string2
+    end,
+  },
+```
+
+### get_customers
+Has no parameters, so do not generate an `execute_input.json` file.
+
+### sample_method
+Has to parameters: `string1` and `string2`.
+
+`execute_input.json` should contain:
+```json
+  [
+    "string1",
+    "string2"
+  ]
+```
+

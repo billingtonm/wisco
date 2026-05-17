@@ -1,6 +1,6 @@
 module Wisco
   module PathUtils
-    VALID_SECTIONS = %w[actions triggers pick_lists].freeze
+    VALID_SECTIONS = %w[actions triggers pick_lists methods].freeze
 
     module_function
 

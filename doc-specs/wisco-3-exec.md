@@ -47,6 +47,7 @@ After running `wisco fixtures <path>` and editing the `execute_input.json` file 
 | target_dir   | No       | Directory containing `.wisco.json`. Defaults to current directory.
 | --input      | No       | Specifies a specific input file from `./fixtures/actions/<action>/` to use as parameters. If not specified, each file beginning with `execute_` that does not have the sentinel line will be executed.
 | --debug      | No       | Optional debugging. |
+| --verbose    | No       | default: `true`. Passed along to the `verbose` option in `ExecCommand`
 
 #### Other options for `path`:
 | Path Structure  | Meaning                          | Example             |
@@ -56,7 +57,7 @@ After running `wisco fixtures <path>` and editing the `execute_input.json` file 
 | *key*           | Find the *key* in any section — error if multiple matches found | `get_users`
 
 #### Valid values for `section`
-`actions`, `triggers`, `pick_lists` (new in v0.2.1)
+`actions`, `triggers`, `pick_lists`, `methods` (new in v0.2.2)
 (possibly more in future)
 
 ### Steps
@@ -75,7 +76,7 @@ The working directory here is `./fixtures/actions/action_01/`.
     - `options.output` = file path of output, named `output_<input_basename>.json` in the working directory.
     - if the item is an `action` or `trigger` then:
         - `options.input` = the input_file from step #2
-    - if the item is a pick list (from section `pick_lists`):
+    - if the item is a pick list (from section `pick_lists`) OR the item is a method (from section `methods`):
         - `options.args` = the input_file from step #2
 
 5. If there is an error executing step 4, record this to `error_<input_basename>.txt`
@@ -148,4 +149,52 @@ When you pass the arguments via ExeCommand, the contents of the file `fixtures/p
     "limit": "1"
 }
 ```
+
+# 3.4 Executing methods
+
+## Sample connector
+```ruby
+{
+  title: 'Chargebee-demo',
+
+  connection: {
+    ...
+  },
+
+  test: lambda do |_connection|
+    get('/api/v2/plans', limit: 1)
+  end,
+
+  methods: {
+    get_customers: lambda do
+      get('/api/v2/customers')
+    end,
+
+    sample_method: lambda do |string1, string2|
+      string1 + ' ' + string2
+    end,
+  },
+}
+```
+
+
+
+### Method with no parameters: `get_customers`
+
+The `get_customers` method in the preceding example has no declared input arguments.
+
+### Method with parameters: `sample_method`
+
+The second method we will cover in the example above is the `sample_method` method, which has 2 arguments. You can see that we have referenced an args in the command which points to a JSON file stored in our fixtures folder. This file should contain an array where each index in the array corresponds to a single argument.
+
+The `fixtures/methods/sample_method/execute_input.json` file in this example contains the following:
+
+```json
+[
+    "Hello",
+    "world"
+]
+```
+
+This file is to be passed to the `args` option for `ExecCommand`.
 
