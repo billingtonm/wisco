@@ -33,6 +33,7 @@ This is a setup/scaffolding step that must be run before `wisco exec` can be use
 wisco fixtures actions.get_user
 wisco fixtures triggers.new_event
 wisco fixtures actions
+wisco fixtures pick_lists
 wisco fixtures actions --overwrite
 ```
 
@@ -141,3 +142,35 @@ The `input_fields` and `output_fields` schemas use a JSON array to describe the 
 ```
 
 Fields of type `object` expand into a nested hash using their `properties`. Fields of type `array` expand into a single-element array. All other types produce a `"<type_value_required|optional>"` placeholder string.
+
+
+## 4.4 Fixtures directory structure
+The `fixtures` directory resides in the root of the connector.
+
+It will contain files:
+
+|Filename              | Meaning                |
+|----------------------|------------------------|
+| `execute_*.json`     | The parameters to be used to execute this item. `wisco fixtures ` creates `execute_input.json`, but any json file matching execute*.json will be executed by the `wisco exec` command. |
+| `input_fields.json`  | The input fields definition for the item (if applicable) |
+| `output_fields.json` | The output fields definition for the item (if applicable) |
+
+```
+├── fixtures
+|   ├── actions
+|   |   ├── action_01
+|   |   |   ├── execute_input.json
+|   |   |   ├── input_fields.json
+|   |   |   └── output_fields.json
+|   |   ├── action_01
+|   |   ├── action_02
+|   |   └── ... other actions ...
+|   ├── picklists
+|   |   ├── pick_list_01
+|   |   |   └── execute_input.json
+|   |   └── ... other picklists ...
+|   └── triggers
+|   |   ├── trigger_01
+|   |   |   ├── execute_input.json
+|   |   |   ├── input_fields.json
+|   |   |   └── output_fields.json

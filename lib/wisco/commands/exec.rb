@@ -49,7 +49,12 @@ module Wisco
           input_files = resolve_input_files(input, fixtures_dir)
 
           if input_files.empty?
-            warn "\tWarning: No ready input files found in #{fixture_dir_output}"
+            if section == 'pick_lists'
+              # Static/dynamic pick list — no args needed; execute once with no input file
+              execute_one(section, key, nil, fixtures_dir, connector_full_path, connection, debug: debug)
+            else
+              warn "\tWarning: No ready input files found in #{fixture_dir_output}"
+            end
             next
           end
 
@@ -88,27 +93,35 @@ module Wisco
       end
 
       def execute_one(section, key, input_file, fixtures_dir, connector_full_path, connection, debug: false)
-        stem        = File.basename(input_file, '.*')
+        stem        = input_file ? File.basename(input_file, '.*') : 'execute'
         output_file = File.join(fixtures_dir, "output_#{stem}.json")
         error_file  = File.join(fixtures_dir, "error_#{stem}.txt")
 
-        options = { connector: connector_full_path, input: input_file, output: output_file }
+        pick_list = (section == 'pick_lists')
+        exec_path = pick_list ? "#{section}.#{key}" : "#{section}.#{key}.execute"
+
+        options = { connector: connector_full_path, output: output_file }
         options[:connection] = connection if connection
+        if pick_list
+          options[:args] = input_file if input_file
+        else
+          options[:input] = input_file
+        end
 
         if debug
-          warn "[exec] path:       #{section}.#{key}.execute"
+          warn "[exec] path:       #{exec_path}"
           warn "[exec] connector:  #{connector_full_path}"
           warn "[exec] connection: #{connection.inspect}"
-          warn "[exec] input:      #{input_file}"
+          warn "[exec] #{pick_list ? 'args' : 'input'}:      #{input_file.inspect}"
           warn "[exec] output:     #{output_file}"
         end
 
         begin
-          cmd = Workato::CLI::ExecCommand.new(path: "#{section}.#{key}.execute", options: options)
+          cmd = Workato::CLI::ExecCommand.new(path: exec_path, options: options)
           cmd.call
         rescue StandardError => e
           File.write(error_file, "#{e.class}: #{e.message}\n\n#{e.backtrace.join("\n")}\n")
-          warn "Error executing #{section}.#{key} with #{File.basename(input_file)}: #{e.message}"
+          warn "Error executing #{section}.#{key} with #{input_file ? File.basename(input_file) : 'no input'}: #{e.message}"
           warn "  Details written to: #{error_file}"
           return
         end
