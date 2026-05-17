@@ -39,23 +39,41 @@ wisco fixtures methods
 ```
 
 ## 4.2 Steps
+
+### Background Information: actions and triggers
+
+Both actions and triggers have input and output fields. 
+The `input_fields` lambda describes the schema of the data that is passed as input to the `execute` lambda (for actions) or `poll` lambda (for triggers).
+
+Similarly, the `output_fields` lambda describes the schema of the data output by the `execute`/`poll` key.
+
+actions and triggers can optionally have a `config_fields` key array. This describes meta-parameters that are used by the `input_fields` and `output_fields`.
+
+### Processing Steps
+
 (Assuming the `action` is called `action_01`)
 
 0. Ensures the output directory `./fixtures/actions/action_01/` exists, creating it as needed.
 
-1. If the item is from the section `actions, triggers`:
+1. If the item is from the section `actions` or `triggers`:
 
-    1. Calls ExecCommand with:
+    1. If the `config_fields` array is not defined for this item, skip to step 4
+    2. If `config_fields.json` exists (with no sentinel) then skip to step 4
+    3. Create a `config_fields.json` for this item using the fields defined in the `config_fields` array. Warn the user that the config_fields file needs to be completed. Stop any furher processing for this item.
+    4. Calls ExecCommand with:
         - `path` = `actions.action_01.input_fields`
         - `options.connector` = from the `.wisco.json` file (key: connector.path)
         - `options.connection` = from the `.wisco.json` file (key: connection)
         - `options.output` = `./fixtures/actions/action_01/input_fields.json`
+        - `options.config_fields` = `./fixtures/actions/action_01/config_fields.json` (if detected at step 2)
 
-    2. Evaluates `input_fields.json` to determine the structure of the input hash for the action/trigger. Writes a template to `./fixtures/actions/action_01/execute_input.json` that the user will fill in before running `wisco exec`. The file contains a sentinel comment at line 1 marking it as an unedited template. See **Sentinel behaviour** and **Schema evaluation** below.
 
-    3. Calls ExecCommand again for `output_fields`:
+    5. Evaluates `input_fields.json` to determine the structure of the input hash for the action/trigger. Writes a template to `./fixtures/actions/action_01/execute_input.json` that the user will fill in before running `wisco exec`. The file contains a sentinel comment at line 1 marking it as an unedited template. See **Sentinel behaviour** and **Schema evaluation** below.
+
+    6. Calls ExecCommand again for `output_fields`:
         - `path` = `actions.action_01.output_fields`
         - `options.output` = `./fixtures/actions/action_01/output_fields.json`
+        - `options.config_fields` = `./fixtures/actions/action_01/config_fields.json` (if detected at step 2)
 
 2. If the item is from the section `pick_lists`, (eg: `my_picklist`)
 
@@ -164,8 +182,10 @@ It will contain files:
 |Filename              | Meaning                |
 |----------------------|------------------------|
 | `execute_*.json`     | The parameters to be used to execute this item. `wisco fixtures ` creates `execute_input.json`, but any json file matching execute*.json will be executed by the `wisco exec` command. |
+| `config_fields.json` | If an action or trigger has a `config_fields` key, this file will be created.
 | `input_fields.json`  | The input fields definition for the item (if applicable) |
 | `output_fields.json` | The output fields definition for the item (if applicable) |
+
 
 ```
 ├── fixtures
