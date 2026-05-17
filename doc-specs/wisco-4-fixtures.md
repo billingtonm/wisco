@@ -68,7 +68,7 @@ actions and triggers can optionally have a `config_fields` key array. This descr
         - `options.config_fields` = `./fixtures/actions/action_01/config_fields.json` (if detected at step 2)
 
 
-    5. Evaluates `input_fields.json` to determine the structure of the input hash for the action/trigger. Writes a template to `./fixtures/actions/action_01/execute_input.json` that the user will fill in before running `wisco exec`. The file contains a sentinel comment at line 1 marking it as an unedited template. See **Sentinel behaviour** and **Schema evaluation** below.
+    5. Evaluates `input_fields.json` to determine the structure of the input hash for the action/trigger. If `config_fields.json` exists, then the append/merge the fields in `config_fields.json` with those found in `input_fields.json`. Writes a template to `./fixtures/actions/action_01/execute_input.json` that the user will fill in before running `wisco exec`. The file contains a sentinel comment at line 1 marking it as an unedited template. See **Sentinel behaviour** and **Schema evaluation** below.
 
     6. Calls ExecCommand again for `output_fields`:
         - `path` = `actions.action_01.output_fields`
