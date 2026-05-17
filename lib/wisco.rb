@@ -86,6 +86,7 @@ module Wisco
     option :input,      type: :string,  desc: 'Specific input file'
     option :pagination, type: :boolean, default: true,
                         desc: 'Triggers only: true = .poll (with pagination), false = .poll_page (without)'
+    option :verbose,    type: :boolean, default: true,  desc: 'Enable detailed SDK logging'
     option :debug,      type: :boolean, default: false, desc: 'Print ExecCommand call details'
     def exec(path_arg, target_dir = nil)
       Wisco::Commands::Exec.run(
@@ -93,6 +94,7 @@ module Wisco
         target_dir || Dir.pwd,
         input:      options[:input],
         pagination: options[:pagination],
+        verbose:    options[:verbose],
         debug:      options[:debug]
       )
     end

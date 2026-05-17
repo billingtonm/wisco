@@ -10,7 +10,7 @@ module Wisco
     module Exec
       module_function
 
-      def run(path_arg, target_dir, input: nil, pagination: true, debug: false)
+      def run(path_arg, target_dir, input: nil, pagination: true, verbose: true, debug: false)
         target_dir = File.expand_path(target_dir)
         config_path = Wisco.config_path(target_dir)
 
@@ -32,6 +32,12 @@ module Wisco
         connector_full_path = File.join(connector_path, connector_file)
         connection = config['connection']
 
+        # ── connection test short-circuit ──────────────────────────────────
+        if path_arg == 'test'
+          run_test(target_dir, connector_full_path, connection, verbose: verbose, debug: debug)
+          return
+        end
+
         connector = Wisco::Connector.load_connector_from_config(target_dir)
         pairs = Wisco::PathUtils.parse_path(path_arg, connector)
 
@@ -52,7 +58,7 @@ module Wisco
             if %w[pick_lists methods].include?(section)
               # No-param pick list or method — execute once with no input file
               execute_one(section, key, nil, fixtures_dir, connector_full_path, connection,
-                          pagination: pagination, debug: debug)
+                          pagination: pagination, verbose: verbose, debug: debug)
             else
               warn "\tWarning: No ready input files found in #{fixture_dir_output}"
             end
@@ -61,7 +67,7 @@ module Wisco
 
           input_files.each do |input_file|
             execute_one(section, key, input_file, fixtures_dir,
-                        connector_full_path, connection, pagination: pagination, debug: debug)
+                        connector_full_path, connection, pagination: pagination, verbose: verbose, debug: debug)
           end
         end
       end
@@ -93,8 +99,45 @@ module Wisco
         first_line == Wisco::Commands::Fixtures::SENTINEL
       end
 
+      def run_test(target_dir, connector_full_path, connection, verbose: true, debug: false)
+        puts "Testing connection"
+        fixtures_dir = File.join(target_dir, 'fixtures', 'connection', 'test')
+        FileUtils.mkdir_p(fixtures_dir)
+
+        output_file = File.join(fixtures_dir, 'output_test.json')
+        error_file  = File.join(fixtures_dir, 'error_test.txt')
+
+        options = { connector: connector_full_path, output: output_file }
+        options[:connection] = connection if connection
+        options[:verbose]    = verbose
+
+        if debug
+          warn "[exec] path:       test"
+          warn "[exec] connector:  #{connector_full_path}"
+          warn "[exec] connection: #{connection.inspect}"
+          warn "[exec] output:     #{output_file}"
+        end
+
+        begin
+          cmd = Workato::CLI::ExecCommand.new(path: 'test', options: options)
+          cmd.call
+        rescue StandardError => e
+          File.write(error_file, "#{e.class}: #{e.message}\n\n#{e.backtrace.join("\n")}\n")
+          warn "Error testing connection: #{e.message}"
+          warn "  Details written to: #{error_file}"
+          return
+        end
+
+        FileUtils.rm_f(error_file)
+        return unless File.exist?(output_file)
+
+        pretty = JSON.pretty_generate(JSON.parse(File.read(output_file)))
+        File.write(output_file, pretty + "\n")
+        puts "  Written: #{output_file}"
+      end
+
       def execute_one(section, key, input_file, fixtures_dir, connector_full_path, connection,
-                      pagination: true, debug: false)
+                      pagination: true, verbose: true, debug: false)
         stem        = input_file ? File.basename(input_file, '.*') : 'execute'
         output_file = File.join(fixtures_dir, "output_#{stem}.json")
         error_file  = File.join(fixtures_dir, "error_#{stem}.txt")
@@ -110,6 +153,7 @@ module Wisco
 
         options = { connector: connector_full_path, output: output_file }
         options[:connection] = connection if connection
+        options[:verbose]    = verbose
         if use_args
           options[:args] = input_file if input_file
         else

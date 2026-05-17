@@ -40,12 +40,22 @@ After running `wisco fixtures <path>` and editing the `execute_input.json` file 
 ### Command
 `wisco exec <path> [target_dir] [--input=xyz.json] [--debug]`
 
+#### Testing Connections
+The exec command can also test connections. This command is simpler to other forms:
+
+`wisco exec test`
+
+This does not use `--input`. The input comes from the `settings.yaml` file.
+This mode does support `--verbose`.
+
+[See here for more](https://docs.workato.com/en/developing-connectors/sdk/cli/guides/cli/test)
+
 #### Parameters
 | Parameter    | Required | Meaning |
 |--------------|----------|---------|
 | path         | Yes      | Specifies key(s) to execute. See following table.|
 | target_dir   | No       | Directory containing `.wisco.json`. Defaults to current directory.
-| --input      | No       | Specifies a specific input file from `./fixtures/actions/<action>/` to use as parameters. If not specified, each file beginning with `execute_` that does not have the sentinel line will be executed.
+| --input      | No       | Specifies a specific input file from `./fixtures/actions/<action>/` to use as parameters. If not specified, each file beginning with `execute_` that does not have the sentinel line will be executed. 
 | --debug      | No       | Optional debugging. |
 | --verbose    | No       | default: `true`. Passed along to the `verbose` option in `ExecCommand`
 | --pagination | No       | default: `true`. When executing triggers, pass `false` to cause workato SDK to ignore the value of can_poll_more. See [here for details](https://docs.workato.com/en/developing-connectors/sdk/cli/guides/cli/triggers#running-your-poll-lambda-without-pagination).
@@ -58,7 +68,7 @@ After running `wisco fixtures <path>` and editing the `execute_input.json` file 
 | *key*           | Find the *key* in any section — error if multiple matches found | `get_users`
 
 #### Valid values for `section`
-`actions`, `triggers`, `pick_lists`, `methods` (new in v0.2.2)
+`actions`, `triggers`, `pick_lists`, `methods`, `test` (new in v0.3.0)
 (possibly more in future)
 
 #### Example commands
@@ -89,6 +99,9 @@ After running `wisco fixtures <path>` and editing the `execute_input.json` file 
 
     `wisco exec triggers.new_updated_object --pagination=false`
 
+5. Test a connection
+
+    `wisco exec test`
 
 
 
@@ -97,6 +110,8 @@ After running `wisco fixtures <path>` and editing the `execute_input.json` file 
 (Assuming the action is called `action_01`)
 
 The working directory here is `./fixtures/actions/action_01/`.
+
+If the section is `test`, the working directory is `./fixtures/connection/test/`.
 
 0. Checks the working directory exists. If it doesn't, exits with an instruction to run `wisco fixtures action_01` first.
 1. For each item in the path do:
@@ -115,17 +130,22 @@ The working directory here is `./fixtures/actions/action_01/`.
     - If executing a method:
         - `path` = `methods.method_01`
     - If executing a pick_list:
-        - `path` = `pick_lists.picklist_01`        
+        - `path` = `pick_lists.picklist_01`
+
+    - If testing the connections (input path=`test`):
+        - `path` = `test`
        
     - `options.connector` = from the wisco config file (key: connector.path)
     - `options.connection` = from the wisco config file (key: connection)
-    - `options.output` = file path of output, named `output_<input_basename>.json` in the working directory.
+    - `options.output` = file path of output, named `output_<input_basename>.json` in the working directory. (Except for `test` path)
+    - For `test` path: `options.output` = `output_test.json`
+
     - if the item is an `action` or `trigger` then:
         - `options.input` = the input_file from step #2
     - if the item is a pick list (from section `pick_lists`) OR the item is a method (from section `methods`):
         - `options.args` = the input_file from step #2
 
-5. If there is an error executing step 4, record this to `error_<input_basename>.txt`
+5. If there is an error executing step 4, record this to `error_<input_basename>.txt` (or `error_test.txt` if testing a connection)
 6. (Repeat 3–5 for other inputs)
 7. (Repeat 2–6 for other items)
 
