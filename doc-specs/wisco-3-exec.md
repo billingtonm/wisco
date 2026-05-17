@@ -48,6 +48,7 @@ After running `wisco fixtures <path>` and editing the `execute_input.json` file 
 | --input      | No       | Specifies a specific input file from `./fixtures/actions/<action>/` to use as parameters. If not specified, each file beginning with `execute_` that does not have the sentinel line will be executed.
 | --debug      | No       | Optional debugging. |
 | --verbose    | No       | default: `true`. Passed along to the `verbose` option in `ExecCommand`
+| --pagination | No       | default: `true`. When executing triggers, pass `false` to cause workato SDK to ignore the value of can_poll_more. See [here for details](https://docs.workato.com/en/developing-connectors/sdk/cli/guides/cli/triggers#running-your-poll-lambda-without-pagination).
 
 #### Other options for `path`:
 | Path Structure  | Meaning                          | Example             |
@@ -60,6 +61,38 @@ After running `wisco fixtures <path>` and editing the `execute_input.json` file 
 `actions`, `triggers`, `pick_lists`, `methods` (new in v0.2.2)
 (possibly more in future)
 
+#### Example commands
+
+1. Execute an action:
+
+    `wisco exec actions.action_01`
+
+2. Execute a picklist:
+
+    `wisco exec pick_lists.sammple_picklist`
+
+3. Execute a method:
+
+    `wisco exec methods.sammple_method`
+
+4. Execute a trigger:
+
+    4.1 [With pagination](https://docs.workato.com/en/developing-connectors/sdk/cli/guides/cli/triggers#running-your-poll-lambda-with-pagination):
+
+    The `--pagination` parameter defaults to `true` so these are equivalent:
+
+    `wisco exec triggers.new_updated_object`
+
+    `wisco exec triggers.new_updated_object --pagination=true`
+
+    4.1 [Without pagination](https://docs.workato.com/en/developing-connectors/sdk/cli/guides/cli/triggers#running-your-poll-lambda-with-pagination):
+
+    `wisco exec triggers.new_updated_object --pagination=false`
+
+
+
+
+
 ### Steps
 (Assuming the action is called `action_01`)
 
@@ -70,9 +103,22 @@ The working directory here is `./fixtures/actions/action_01/`.
 2. For either the input file specified by `--input` OR all files matching `execute_*` in the working directory (excluding files with the sentinel line) do:
 3. Grab the base name of the input file. eg: `./fixtures/actions/action_01/execute_input.json` becomes `execute_input.json`. (This will be referred to as `input_basename` in steps 4 & 5)
 4. Calls ExecCommand with:
-    - `path` = `actions.action_01.execute`
-    - `options.connector` = from the `.wisco.json` file (key: connector.path)
-    - `options.connection` = from the `.wisco.json` file (key: connection)
+    - If executing an action:
+        - `path` = `actions.action_01.execute`
+    - If executing a trigger:
+
+        - If `--pagination` parameter is `true` (default):
+            - `path` = `triggers.trigger_01.poll`
+        - If `--pagination` parameter is `false`:
+            - `path` = `triggers.trigger_01.poll_page`
+
+    - If executing a method:
+        - `path` = `methods.method_01`
+    - If executing a pick_list:
+        - `path` = `pick_lists.picklist_01`        
+       
+    - `options.connector` = from the wisco config file (key: connector.path)
+    - `options.connection` = from the wisco config file (key: connection)
     - `options.output` = file path of output, named `output_<input_basename>.json` in the working directory.
     - if the item is an `action` or `trigger` then:
         - `options.input` = the input_file from step #2
