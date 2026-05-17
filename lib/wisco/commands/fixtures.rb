@@ -47,24 +47,45 @@ module Wisco
           elsif section == 'methods'
             process_method(key, connector, fixtures_dir, overwrite: overwrite)
           else
+            # ── config_fields pre-check ──────────────────────────────────────
+            item   = connector[section.to_sym]&.[](key.to_sym)
+            raw_cf = item&.[](:config_fields)
+            cf_file = File.join(fixtures_dir, 'config_fields.json')
+            cf_opt  = nil   # set to cf_file once the user has filled it in
+
+            if raw_cf
+              if config_fields_ready?(cf_file)
+                cf_opt = cf_file
+              else
+                write_config_fields_template(raw_cf, cf_file)
+                warn "  Written:  #{cf_file}"
+                warn "  Action required: fill in config_fields.json, then re-run fixtures."
+                next
+              end
+            end
+
+            # ── input_fields ─────────────────────────────────────────────────
             input_fields_file = File.join(fixtures_dir, 'input_fields.json')
             call_exec(
-              path: "#{section}.#{key}.input_fields",
-              connector: connector_full_path,
-              connection: connection,
-              output: input_fields_file,
-              debug: debug
+              path:          "#{section}.#{key}.input_fields",
+              connector:     connector_full_path,
+              connection:    connection,
+              output:        input_fields_file,
+              config_fields: cf_opt,
+              debug:         debug
             )
 
             generate_execute_input(input_fields_file, fixtures_dir, overwrite: overwrite, debug: debug)
 
+            # ── output_fields ────────────────────────────────────────────────
             output_fields_file = File.join(fixtures_dir, 'output_fields.json')
             call_exec(
-              path: "#{section}.#{key}.output_fields",
-              connector: connector_full_path,
-              connection: connection,
-              output: output_fields_file,
-              debug: debug
+              path:          "#{section}.#{key}.output_fields",
+              connector:     connector_full_path,
+              connection:    connection,
+              output:        output_fields_file,
+              config_fields: cf_opt,
+              debug:         debug
             )
           end
         end
@@ -200,9 +221,36 @@ module Wisco
         puts "  Written: #{output_file}"
       end
 
-      def call_exec(path:, connector:, connection:, output:, debug: false)
+      def config_fields_ready?(path)
+        return false unless File.exist?(path)
+
+        first_line = begin
+                       File.open(path, &:readline).chomp
+                     rescue StandardError
+                       ''
+                     end
+        first_line != SENTINEL
+      end
+
+      def write_config_fields_template(config_fields_array, output_file)
+        stringified = stringify_keys_deep(config_fields_array)
+        template    = schema_to_template(stringified)
+        content     = "#{SENTINEL}\n#{JSON.pretty_generate(template)}\n"
+        File.write(output_file, content)
+      end
+
+      def stringify_keys_deep(obj)
+        case obj
+        when Hash  then obj.transform_keys(&:to_s).transform_values { |v| stringify_keys_deep(v) }
+        when Array then obj.map { |e| stringify_keys_deep(e) }
+        else            obj
+        end
+      end
+
+      def call_exec(path:, connector:, connection:, output:, config_fields: nil, debug: false)
         options = { connector: connector, output: output }
-        options[:connection] = connection if connection
+        options[:connection]    = connection    if connection
+        options[:config_fields] = config_fields if config_fields
 
         if debug
           warn "[fixtures] path:       #{path}"
