@@ -1,6 +1,7 @@
 require 'json'
 require 'thor'
 require_relative 'wisco/version'
+require_relative 'wisco/terminal_output'
 
 module Wisco
   CLI_NAME        = 'wisco'

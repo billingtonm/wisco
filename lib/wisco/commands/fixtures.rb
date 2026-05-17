@@ -17,7 +17,7 @@ module Wisco
         config_path = Wisco.config_path(target_dir)
 
         unless File.exist?(config_path)
-          warn "Error: No #{Wisco::WISCO_DIR}/#{Wisco::CONFIG_FILENAME} found in #{target_dir}."
+          Wisco::TerminalOutput.emit_error "Error: No #{Wisco::WISCO_DIR}/#{Wisco::CONFIG_FILENAME} found in #{target_dir}."
           warn "       Run '#{Wisco::CLI_NAME} init' first."
           exit 1
         end
@@ -27,7 +27,7 @@ module Wisco
         connector_file = config.dig('connector', 'file')
 
         if connector_path.nil? || connector_file.nil?
-          warn "Error: #{Wisco::WISCO_DIR}/#{Wisco::CONFIG_FILENAME} is missing connector path/file. Run '#{Wisco::CLI_NAME} init' again."
+          Wisco::TerminalOutput.emit_error "Error: #{Wisco::WISCO_DIR}/#{Wisco::CONFIG_FILENAME} is missing connector path/file. Run '#{Wisco::CLI_NAME} init' again."
           exit 1
         end
 
@@ -53,13 +53,13 @@ module Wisco
             cf_file = File.join(fixtures_dir, 'config_fields.json')
             cf_opt  = nil   # set to cf_file once the user has filled it in
 
-            if raw_cf
+            if raw_cf.present?
               if config_fields_ready?(cf_file)
                 cf_opt = cf_file
               else
                 write_config_fields_template(raw_cf, cf_file)
                 warn "  Written:  #{cf_file}"
-                warn "  Action required: fill in config_fields.json, then re-run fixtures."
+                Wisco::TerminalOutput.emit_warning("  Action required: fill in config_fields.json, then re-run fixtures.")
                 next
               end
             end
@@ -231,7 +231,7 @@ module Wisco
 
       def read_json_without_sentinel(path)
         lines = File.readlines(path)
-        lines.shift if lines.first&.chomp == SENTINEL
+        lines.shift while lines.first&.lstrip&.start_with?('#')
         JSON.parse(lines.join)
       rescue StandardError
         {}
@@ -251,8 +251,27 @@ module Wisco
       def write_config_fields_template(config_fields_array, output_file)
         stringified = stringify_keys_deep(config_fields_array)
         template    = schema_to_template(stringified)
-        content     = "#{SENTINEL}\n#{JSON.pretty_generate(template)}\n"
+        comments    = build_config_fields_comments(stringified)
+        content     = "#{SENTINEL}\n#{comments}#{JSON.pretty_generate(template)}\n"
         File.write(output_file, content)
+      end
+
+      def build_config_fields_comments(fields)
+        return '' if fields.empty?
+
+        lines = ['# Config fields:']
+        fields.each do |field|
+          parts = []
+          parts << "label: #{field['label'].inspect}"       if field['label']
+          parts << "hint: #{field['hint'].inspect}"         if field['hint']
+          parts << "type: #{field['type'] || 'string'}"
+          parts << (field.fetch('optional', true) ? 'optional' : 'required')
+          parts << "control_type: #{field['control_type']}" if field['control_type']
+          parts << "pick_list: #{field['pick_list']}"       if field['pick_list']
+          lines << "#   #{field['name']}: #{parts.join(', ')}"
+        end
+        lines << '#'
+        lines.map { |l| "#{l}\n" }.join
       end
 
       def stringify_keys_deep(obj)
