@@ -24,7 +24,8 @@ This is a setup/scaffolding step that must be run before `wisco exec` can be use
 | *key*                | Find the *key* in any section — error if multiple matches found | `get_users`
 
 #### Valid values for `section`
-`actions`, `triggers`
+`actions`, `triggers`, `pick_lists` (new in v0.2.0)
+
 (possibly more in future)
 
 #### Examples
@@ -36,22 +37,33 @@ wisco fixtures actions --overwrite
 ```
 
 ## 4.2 Steps
-(Assuming the action is called `action_01`)
+(Assuming the `action` is called `action_01`)
 
 0. Ensures the output directory `./fixtures/actions/action_01/` exists, creating it as needed.
-1. Calls ExecCommand with:
-    - `path` = `actions.action_01.input_fields`
-    - `options.connector` = from the `.wisco.json` file (key: connector.path)
-    - `options.connection` = from the `.wisco.json` file (key: connection)
-    - `options.output` = `./fixtures/actions/action_01/input_fields.json`
 
-2. Evaluates `input_fields.json` to determine the structure of the input hash for the action/trigger. Writes a template to `./fixtures/actions/action_01/execute_input.json` that the user will fill in before running `wisco exec`. The file contains a sentinel comment at line 1 marking it as an unedited template. See **Sentinel behaviour** and **Schema evaluation** below.
+1. If the item is from the section `actions, triggers`:
 
-3. Calls ExecCommand again for `output_fields`:
-    - `path` = `actions.action_01.output_fields`
-    - `options.output` = `./fixtures/actions/action_01/output_fields.json`
+    1. Calls ExecCommand with:
+        - `path` = `actions.action_01.input_fields`
+        - `options.connector` = from the `.wisco.json` file (key: connector.path)
+        - `options.connection` = from the `.wisco.json` file (key: connection)
+        - `options.output` = `./fixtures/actions/action_01/input_fields.json`
 
-4. Repeats steps 1–3 for other keys if a *section* was specified as `path`.
+    2. Evaluates `input_fields.json` to determine the structure of the input hash for the action/trigger. Writes a template to `./fixtures/actions/action_01/execute_input.json` that the user will fill in before running `wisco exec`. The file contains a sentinel comment at line 1 marking it as an unedited template. See **Sentinel behaviour** and **Schema evaluation** below.
+
+    3. Calls ExecCommand again for `output_fields`:
+        - `path` = `actions.action_01.output_fields`
+        - `options.output` = `./fixtures/actions/action_01/output_fields.json`
+
+2. If the item is from the section `pick_lists`, (eg: `my_picklist`)
+
+    1. Ensures directory `./fixtures/pick_lists/my_picklist/` exists, creating if it doesn't. This is the `output_directory` for this picklist.
+
+    2. `my_picklist` should be a lambda. If the lambda has <=1 parameters then end. (Parameter 1 will be the `connection` parameter which we don't need to worry about)
+
+    3. Otherwise, if the lambda has >1 parameters, generate an `execute_input.json` for all but the first parameter (which is the `connection` parameter). Each parameter should be assumed to be as string.
+
+3. Repeats steps 1–3 for other keys if a *section* was specified as `path`.
 
 If any ExecCommand call fails (e.g. the connector has an error in its field definitions), a warning is printed and the step is skipped — remaining steps continue.
 

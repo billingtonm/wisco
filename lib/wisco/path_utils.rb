@@ -1,6 +1,6 @@
 module Wisco
   module PathUtils
-    VALID_SECTIONS = %w[actions triggers].freeze
+    VALID_SECTIONS = %w[actions triggers pick_lists].freeze
 
     module_function
 
@@ -36,19 +36,18 @@ module Wisco
         items.keys.map { |k| [section, k.to_s] }
 
       else
-        key = path_arg
-        in_actions  = connector[:actions]&.key?(key.to_sym)  || false
-        in_triggers = connector[:triggers]&.key?(key.to_sym) || false
+        key      = path_arg
+        found_in = VALID_SECTIONS.select { |s| connector[s.to_sym]&.key?(key.to_sym) }
 
-        case [in_actions, in_triggers]
-        when [true, false]  then [['actions',  key]]
-        when [false, true]  then [['triggers', key]]
-        when [true, true]
-          warn "Error: '#{key}' exists in both actions and triggers."
-          warn "       Qualify with section, e.g. 'actions.#{key}'."
+        case found_in.size
+        when 1
+          [[found_in.first, key]]
+        when 0
+          warn "Error: '#{key}' not found in #{VALID_SECTIONS.join(', ')}."
           exit 1
         else
-          warn "Error: '#{key}' not found in actions or triggers."
+          warn "Error: '#{key}' exists in multiple sections: #{found_in.join(', ')}."
+          warn "       Qualify with section, e.g. '#{found_in.first}.#{key}'."
           exit 1
         end
       end

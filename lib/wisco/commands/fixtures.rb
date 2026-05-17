@@ -42,25 +42,29 @@ module Wisco
           fixtures_dir = File.join(target_dir, 'fixtures', section, key)
           FileUtils.mkdir_p(fixtures_dir)
 
-          input_fields_file = File.join(fixtures_dir, 'input_fields.json')
-          call_exec(
-            path: "#{section}.#{key}.input_fields",
-            connector: connector_full_path,
-            connection: connection,
-            output: input_fields_file,
-            debug: debug
-          )
+          if section == 'pick_lists'
+            process_pick_list(key, connector, fixtures_dir, overwrite: overwrite)
+          else
+            input_fields_file = File.join(fixtures_dir, 'input_fields.json')
+            call_exec(
+              path: "#{section}.#{key}.input_fields",
+              connector: connector_full_path,
+              connection: connection,
+              output: input_fields_file,
+              debug: debug
+            )
 
-          generate_execute_input(input_fields_file, fixtures_dir, overwrite: overwrite, debug: debug)
+            generate_execute_input(input_fields_file, fixtures_dir, overwrite: overwrite, debug: debug)
 
-          output_fields_file = File.join(fixtures_dir, 'output_fields.json')
-          call_exec(
-            path: "#{section}.#{key}.output_fields",
-            connector: connector_full_path,
-            connection: connection,
-            output: output_fields_file,
-            debug: debug
-          )
+            output_fields_file = File.join(fixtures_dir, 'output_fields.json')
+            call_exec(
+              path: "#{section}.#{key}.output_fields",
+              connector: connector_full_path,
+              connection: connection,
+              output: output_fields_file,
+              debug: debug
+            )
+          end
         end
       end
 
@@ -118,6 +122,44 @@ module Wisco
                          "<#{type}_value_#{req_str}>"
                        end
         end
+      end
+
+      def process_pick_list(key, connector, fixtures_dir, overwrite: false)
+        pick_list_fn = connector[:pick_lists]&.[](key.to_sym)
+
+        unless pick_list_fn.respond_to?(:parameters)
+          warn "  Warning: pick_list '#{key}' is not callable — skipping."
+          return
+        end
+
+        # Drop the first parameter (connection); remaining params become input fields
+        input_params = pick_list_fn.parameters.drop(1)
+
+        if input_params.empty?
+          puts "  No input required: #{fixtures_dir}"
+          return
+        end
+
+        output_file = File.join(fixtures_dir, 'execute_input.json')
+
+        if File.exist?(output_file)
+          first_line = begin
+                         File.open(output_file, &:readline).chomp
+                       rescue StandardError
+                         ''
+                       end
+          unless first_line == SENTINEL || overwrite
+            puts "  Skipped (user-edited): #{output_file}"
+            return
+          end
+        end
+
+        template = input_params.each_with_object({}) do |(_, name), hash|
+          hash[name.to_s] = '<string_value_required>'
+        end
+        content = "#{SENTINEL}\n#{JSON.pretty_generate(template)}\n"
+        File.write(output_file, content)
+        puts "  Written: #{output_file}"
       end
 
       def call_exec(path:, connector:, connection:, output:, debug: false)
