@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.summary       = 'Workato Connector SDK Companion'
   spec.authors       = ['mbillington']
   spec.executables   = ['wisco']
-  spec.files         = Dir.chdir(ROOT_DIR) { Dir['bin/*', 'lib/**/*.rb'] }
+  spec.files         = Dir.chdir(ROOT_DIR) { Dir['bin/*', 'lib/**/*.rb', "lib/**/{*,.*}"] }
   spec.require_paths = ['lib']
   spec.required_ruby_version = '>= 2.7'
 
