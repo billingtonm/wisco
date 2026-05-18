@@ -1,9 +1,11 @@
-# ERB template for a GitHub Actions workflow to deploy a Workato connector 
-# when changes are pushed to the main branch.
+<%#
+ERB template for a GitHub Actions workflow to deploy a Workato connector
+when changes are pushed to the main branch.
 
-# Template variables:
-#   connector_name: The name of the connector file to deploy (e.g., 'Confluence.rb')
-#   workato_base_url: The base URL for the Workato API (e.g., 'https://app.workato.com')
+Template variables:
+  connector_name: The name of the connector file to deploy (e.g., 'Confluence.rb')
+  workato_base_url: The base URL for the Workato API (e.g., 'https://app.workato.com')
+%>
 
 name: Workato Connector Deployment
 
