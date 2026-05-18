@@ -1,3 +1,4 @@
+require 'find'
 require_relative 'lib/wisco/version'
 
 ROOT_DIR = __dir__
@@ -9,7 +10,9 @@ Gem::Specification.new do |spec|
   spec.authors       = ['mbillington']
   spec.executables   = ['wisco']
   spec.files         = Dir.chdir(ROOT_DIR) do
-    Dir.glob(['bin/*', 'lib/**/*'], File::FNM_DOTMATCH).select { |f| File.file?(f) }
+    files = Dir.glob('bin/*')
+    Find.find('lib') { |path| files << path if File.file?(path) }
+    files
   end
   spec.require_paths = ['lib']
   spec.required_ruby_version = '>= 2.7'
