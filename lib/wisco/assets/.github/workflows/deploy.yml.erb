@@ -1,0 +1,29 @@
+<%#
+ERB template for a GitHub Actions workflow to deploy a Workato connector
+when changes are pushed to the main branch.
+
+Template variables:
+  connector_name: The name of the connector file to deploy (e.g., 'Confluence.rb')
+  workato_base_url: The base URL for the Workato API (e.g., 'https://app.workato.com')
+%>
+
+name: Workato Connector Deployment
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '<%= connector_name %>'
+
+jobs:
+  deploy-to-workato:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Deploy connector to Workato
+        uses: billingtonm/Workato-Github-Actions/deploy-connector@v1
+        with:
+          connector-file: <%= connector_name %>
+          workato-base-url: <%= workato_base_url %>
+          api-token: ${{ secrets.WORKATO_DEV_ENVIRONMENT_API_TOKEN }}

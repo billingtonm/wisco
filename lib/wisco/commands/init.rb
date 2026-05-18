@@ -1,3 +1,4 @@
+require 'erb'
 require 'fileutils'
 require_relative '../config'
 require_relative '../connector'
@@ -5,6 +6,15 @@ require_relative '../connector'
 module Wisco
   module Commands
     module Init
+      HOSTNAMES = [
+        { region: 'US Data Center', hostname: 'www.workato.com'    },
+        { region: 'EU Data Center', hostname: 'app.eu.workato.com' },
+        { region: 'JP Data Center', hostname: 'app.jp.workato.com' },
+        { region: 'SG Data Center', hostname: 'app.sg.workato.com' },
+        { region: 'AU Data Center', hostname: 'app.au.workato.com' },
+        { region: 'IL Data Center', hostname: 'app.il.workato.com' },
+      ].freeze
+
       module_function
 
       def run(target_dir)
@@ -36,10 +46,41 @@ module Wisco
         config['connector']['path'] = target_dir
         config['connector']['file'] = connector_file
 
+        prompt_hostname(config)
+
         Wisco::Config.save_config(config_path, config)
         puts "Config written to #{config_path}"
 
         update_gitignore(target_dir)
+        deploy_github_workflow(target_dir, connector_file, config)
+      end
+
+      def prompt_hostname(config)
+        api_cfg = config['workato_developer_api'] ||= {}
+        current = api_cfg['hostname']
+
+        if current && !current.strip.empty?
+          puts "Current Workato hostname: #{current}"
+          print 'Keep this? (y/n): '
+          return if $stdin.gets.strip.downcase == 'y'
+        end
+
+        puts 'Select your Workato instance:'
+        HOSTNAMES.each_with_index do |entry, i|
+          puts "  #{i + 1}. #{entry[:hostname]}  (#{entry[:region]})"
+        end
+
+        loop do
+          print "Enter number (1-#{HOSTNAMES.size}): "
+          input = $stdin.gets.strip
+          index = input.to_i
+          if index >= 1 && index <= HOSTNAMES.size
+            api_cfg['hostname'] = HOSTNAMES[index - 1][:hostname]
+            puts "Hostname set to: #{api_cfg['hostname']}"
+            return
+          end
+          warn "Invalid selection. Please enter a number between 1 and #{HOSTNAMES.size}."
+        end
       end
 
       def update_gitignore(target_dir)
@@ -55,8 +96,33 @@ module Wisco
             puts "Added '#{entry}' to .gitignore"
           end
         else
-          puts "Note: No .gitignore found — consider adding '#{entry}' manually."
+          asset_path = File.join(__dir__, '..', 'assets', '.gitignore')
+          FileUtils.cp(asset_path, gitignore_path)
+          puts "Created .gitignore from template"
         end
+      end
+
+      def deploy_github_workflow(target_dir, connector_file, config)
+        output_path = File.join(target_dir, '.github', 'workflows', 'deploy.yml')
+
+        if File.exist?(output_path)
+          print '.github/workflows/deploy.yml already exists. Overwrite? (y/n): '
+          unless $stdin.gets.strip.downcase == 'y'
+            puts 'Skipped: .github/workflows/deploy.yml'
+            return
+          end
+        end
+
+        hostname         = config.dig('workato_developer_api', 'hostname')
+        workato_base_url = "https://#{hostname}"
+        connector_name   = connector_file
+
+        template_path = File.join(__dir__, '..', 'assets', '.github', 'workflows', 'deploy.yml.erb')
+        rendered      = ERB.new(File.read(template_path)).result(binding)
+
+        FileUtils.mkdir_p(File.dirname(output_path))
+        File.write(output_path, rendered)
+        puts 'Created .github/workflows/deploy.yml'
       end
     end
   end
