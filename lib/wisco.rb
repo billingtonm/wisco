@@ -87,15 +87,28 @@ module Wisco
     option :pagination, type: :boolean, default: true,
                         desc: 'Triggers only: true = .poll (with pagination), false = .poll_page (without)'
     option :verbose,    type: :boolean, default: true,  desc: 'Enable detailed SDK logging'
+    option :extended,   type: :boolean, default: true,
+                        desc: 'Auto-pass input_fields/output_fields as extended schema (actions/triggers)'
+    option :closure,                  type: :string, desc: 'Closure JSON file (triggers: simulate subsequent polls)'
+    option :'config-fields',          type: :string, desc: 'config_fields JSON file'
+    option :continue,                 type: :string, desc: 'Continue JSON file (multistep actions)'
+    option :'extended-input-schema',  type: :string, desc: 'Extended input schema JSON (overrides --extended auto-detection)'
+    option :'extended-output-schema', type: :string, desc: 'Extended output schema JSON (overrides --extended auto-detection)'
     option :debug,      type: :boolean, default: false, desc: 'Print ExecCommand call details'
     def exec(path_arg, target_dir = nil)
       Wisco::Commands::Exec.run(
         path_arg,
         target_dir || Dir.pwd,
-        input:      options[:input],
-        pagination: options[:pagination],
-        verbose:    options[:verbose],
-        debug:      options[:debug]
+        input:                  options[:input],
+        pagination:             options[:pagination],
+        verbose:                options[:verbose],
+        extended:               options[:extended],
+        closure:                options[:closure],
+        config_fields:          options[:config_fields],
+        continue:               options[:continue],
+        extended_input_schema:  options[:extended_input_schema],
+        extended_output_schema: options[:extended_output_schema],
+        debug:                  options[:debug]
       )
     end
 

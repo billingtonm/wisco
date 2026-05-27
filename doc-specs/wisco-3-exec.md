@@ -59,6 +59,47 @@ This mode does support `--verbose`.
 | --debug      | No       | Optional debugging. |
 | --verbose    | No       | default: `true`. Passed along to the `verbose` option in `ExecCommand`
 | --pagination | No       | default: `true`. When executing triggers, pass `false` to cause workato SDK to ignore the value of can_poll_more. See [here for details](https://docs.workato.com/en/developing-connectors/sdk/cli/guides/cli/triggers#running-your-poll-lambda-without-pagination).
+| --extended   | No       | default: `true`. (New in wisco 0.3.3) When `true` wisco will supply the `--extended_input_fields` and `--extended_output_fields` parameters automatically. Set to `false` to disable this behaviour.
+
+#### `workato exec` parameters (new in wisco 0.3.3)
+wisco 0.3.3 adds support for the parameters supported by the `workato exec` command.
+
+Note: For options that refer to paths, if the file path only contains a name: eg: `config_fields.json` then the file path is the fixtures directory for the item being executed.
+
+*eg:* `wisco exec actions.action_01 --config_fields=config_fields.json`
+
+wisco will specify `.fixtures/actions/action_01/config_fields.json` as the path to the `ExecCommand`
+
+| Parameter       | Meaning  | 
+|-----------------|----------|
+| --closure       | The path to the JSON file that stores the closure. Used for poll lambdas to simulate polls after the initial poll. 
+| --config-fields | The path to the JSON file that stores the `config_fields` data. Used for `object_definitions`, `input_fields`, or `output_fields` lambdas.
+| --continue      | The path to the JSON file that store the continue data. Used for execute lambdas that have multistep implemented.
+| --extended-input-schema | The path to the JSON file that stores the extended_input_schema. Used for `execute`, `webhook_notification`, or `poll` lambdas. *(See note below)*
+| --extended-output-schema | The path to the JSON file that stores the extended_output_schema. Used for `execute`, `webhook_notification`, or `poll` lambdas. *(See note below)*
+
+##### Notes on `--extended-input-schema` and `--extended-output-schema`:
+These parameters work together with the `--extended` parameter.
+
+If `--extended=true`, wisco will check if fixture files exist and supply them automatically with the `input_fields.json` / `output_fields.json` fixtures created by `wisco fixtures`.
+The `--extended-input-schema`, `--extended-output-schema` parameters can be used to override the fixture files.
+
+`extended=false` disables the automatic fixture passing, but the user can still specify `--extended_input_fields` and `--extended_output_fields`
+
+Decision matrix:
+
+| `--extended`   | parameter                  | User passed parameter? | fixture file exists?  | Outcome |
+|----------------|----------------------------|------------------------|-----------------------|--------|
+| `true`         | `--extended_input_fields`  | no                     | `input_fields.json`   | `--extended_input_fields = input_fields.json`
+| `true`         | `--extended_input_fields`  | yes                    | n/a                   | `--extended_input_fields` = *user value*
+| `true`         | `--extended_output_fields` | no                     | `output_fields.json`  | `--extended_output_fields = output_fields.json`
+| `true`         | `--extended_output_fields` | yes                    | n/a                   | `--extended_output_fields` = *user value*
+| `false`        | `--extended_input_fields`  | yes                    | n/a                   | `--extended_input_fields` = *user value*
+| `false`        | `--extended_input_fields`  | no                     | n/a                   | Do not pass any value for `--extended_input_fields` 
+| `false`        | `--extended_output_fields` | yes                    | n/a                   | `--extended_output_fields` = *user value*
+| `false`        | `--extended_output_fields` | no                     | n/a                   | Do not pass any value for `--extended_output_fields` 
+
+
 
 #### Other options for `path`:
 | Path Structure  | Meaning                          | Example             |
