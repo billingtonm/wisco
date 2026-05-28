@@ -1,6 +1,7 @@
 module Wisco
   module TerminalOutput
-    RED = 31
+    RED    = 31
+    BLUE   = 34
     YELLOW = 33
 
     module_function
@@ -11,6 +12,10 @@ module Wisco
 
     def emit_warning(message)
       warn(colorize(message, YELLOW))
+    end
+
+    def emit_info(message)
+      warn(colorize(message, BLUE))
     end
 
     def colorize(message, color_code)
