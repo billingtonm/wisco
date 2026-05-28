@@ -52,6 +52,7 @@ module Wisco
         puts "Config written to #{config_path}"
 
         update_gitignore(target_dir)
+        ensure_gemfile(target_dir)
         deploy_github_workflow(target_dir, connector_file, config)
       end
 
@@ -100,6 +101,20 @@ module Wisco
           FileUtils.cp(asset_path, gitignore_path)
           puts "Created .gitignore from template"
         end
+      end
+
+      def ensure_gemfile(target_dir)
+        gemfile_path = File.join(target_dir, 'Gemfile')
+
+        if File.exist?(gemfile_path)
+          puts 'Gemfile already exists — no changes made.'
+          return
+        end
+
+        asset_path = File.join(__dir__, '..', 'assets', 'Gemfile')
+        FileUtils.cp(asset_path, gemfile_path)
+        Wisco::TerminalOutput.emit_info('[INFO] Created Gemfile from template')
+        Wisco::TerminalOutput.emit_info("[INFO] Run 'bundle install' to install dependencies.")
       end
 
       def deploy_github_workflow(target_dir, connector_file, config)

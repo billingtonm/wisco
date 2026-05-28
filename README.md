@@ -1,212 +1,272 @@
-# Wisco
+# Wisco — Workato Connector SDK Companion
 
-Wisco is a small Ruby CLI for working with Workato connector projects.
+Wisco is a Ruby CLI gem for developing and managing [Workato](https://www.workato.com) custom connectors. It wraps the [Workato Connector SDK CLI](https://docs.workato.com/developing-connectors/sdk/cli.html) and adds conventions for fixture management, schema inspection, and platform deployment.
 
-It helps with three common tasks:
+## Installation
 
-- Detecting a connector file and creating local project configuration
-- Inspecting connector structure from the command line
-- Running connector field and execute flows through the Workato Connector SDK CLI
+Build and install the gem locally:
 
-The tool is designed for local development against a connector project directory and uses a per-project config file named `.wisco.json`.
+```bash
+gem build wisco.gemspec
+gem install wisco-*.gem
+```
 
-## Features
+Then verify:
 
-- `init` discovers a connector file and writes `.wisco.json`
-- `list` prints a structural overview of a connector
-- `list actions` and `list triggers` render markdown-friendly tables
-- `list all` combines overview, actions, and triggers output
-- `exec --mode=fields` generates fixture files for input and output fields
-- `exec --mode=execute` runs connector methods with prepared input files
+```bash
+wisco --version
+```
 
 ## Requirements
 
 - Ruby `2.7.6`
-- Bundler
-- The gems listed in [Gemfile](Gemfile)
-
-Current runtime dependencies:
-
-- `activesupport ~> 7.0.0`
 - `workato-connector-sdk 1.3.19`
-
-## Installation
-
-Clone the repository and install dependencies:
-
-```bash
-bundle install
-```
-
-Run the CLI from the repository root:
-
-```bash
-bundle exec ruby wisco.rb --help
-```
-
-On Windows, you can also use [wisco.bat](wisco.bat).
+- `activesupport ~> 7.0.0`
 
 ## Quick Start
 
-From inside a Workato connector project directory:
+From a Workato connector project directory:
 
 ```bash
-bundle exec ruby /path/to/wisco.rb init
-bundle exec ruby /path/to/wisco.rb list
+wisco init          # detect connector, write config, deploy project files
+wisco list all      # inspect connector structure
+wisco fixtures actions.get_user   # generate fixture templates
+# edit fixtures/actions/get_user/execute_input.json (remove the sentinel line)
+wisco exec actions.get_user       # run the action against live credentials
 ```
 
-The `init` command creates a `.wisco.json` file in the target directory. That file stores the detected connector path and filename so later commands can load the connector consistently.
+---
 
-Example:
+## Commands
+
+### `wisco init [path]`
+
+Initialises a connector project. Run this once per project, and again whenever project settings change.
+
+What it does:
+- Detects the connector `.rb` file in the target directory
+- Creates or updates `.wisco/config.json` (stores connector path, file, and Workato hostname)
+- Prompts you to select your Workato data centre (US, EU, JP, SG, AU, IL)
+- Copies a `.gitignore` template into the project root if one is not already present
+- Copies a `Gemfile` template into the project root if one is not already present — run `bundle install` afterwards
+- Creates `.github/workflows/deploy.yml` from a template (prompts before overwriting)
+
+```bash
+wisco init
+wisco init ./my-connector
+```
+
+The config is stored at `.wisco/config.json` inside the connector project:
 
 ```json
 {
   "connector": {
-    "path": "/path/to/connector/project",
+    "path": "/path/to/connector",
     "file": "connector.rb"
-  }
+  },
+  "workato_developer_api": {
+    "hostname": "app.au.workato.com",
+    "api_token": "<your token>"
+  },
+  "connection": "default"
 }
 ```
 
-## Commands
+---
 
-### `init [path]`
+### `wisco list [subcommand] [path]`
 
-Detects a connector file and creates or updates `.wisco.json`.
+Inspects a connector's structure without executing anything.
 
-If no path is provided, the current directory is used.
-
-Examples:
-
-```bash
-bundle exec ruby wisco.rb init
-bundle exec ruby wisco.rb init ./my-connector
-```
-
-### `list [path]`
-
-Prints a tree view of the top-level connector structure.
-
-Examples:
+| Subcommand | Output |
+|------------|--------|
+| *(none)*   | Tree overview of top-level keys |
+| `actions`  | Markdown table of all actions |
+| `triggers` | Markdown table of all triggers |
+| `all`      | Overview + actions table + triggers table |
 
 ```bash
-bundle exec ruby wisco.rb list
-bundle exec ruby wisco.rb list ./my-connector
+wisco list
+wisco list actions
+wisco list triggers
+wisco list all
+wisco list actions --sort=title
 ```
 
-### `list actions [path]`
+Option: `--sort=key|title` — sort the actions/triggers table.
 
-Prints actions as a markdown table.
+---
+
+### `wisco fixtures <path> [target_dir]`
+
+Fetches input and output field schemas from the connector and writes fixture template files. Run this before `wisco exec`.
 
 ```bash
-bundle exec ruby wisco.rb list actions
+wisco fixtures actions.get_user
+wisco fixtures triggers.new_record
+wisco fixtures actions               # all actions
+wisco fixtures pick_lists
+wisco fixtures methods
+wisco fixtures actions --overwrite   # regenerate even if already edited
 ```
 
-### `list triggers [path]`
+**Path forms:**
 
-Prints triggers as a markdown table.
+| Form | Meaning |
+|------|---------|
+| `section.key` | One specific item |
+| `section` | All items in that section |
+| `key` | Auto-detect section (error if found in multiple) |
+
+**Valid sections:** `actions`, `triggers`, `pick_lists`, `methods`
+
+**Files created** under `fixtures/<section>/<key>/`:
+
+| File | Description |
+|------|-------------|
+| `input_fields.json` | Schema of the input fields |
+| `output_fields.json` | Schema of the output fields |
+| `execute_input.json` | Template input for `wisco exec` — edit this, removing the sentinel comment |
+| `config_fields.json` | Created if the item has `config_fields` — fill this in first, then re-run |
+
+The `execute_input.json` file starts with a sentinel comment line. Remove it once you have filled in the values — `wisco exec` skips files that still contain the sentinel.
+
+Options: `--overwrite`, `--debug`
+
+---
+
+### `wisco exec <path> [target_dir]`
+
+Executes connector items using the fixture data prepared by `wisco fixtures`.
 
 ```bash
-bundle exec ruby wisco.rb list triggers
+wisco exec actions.get_user
+wisco exec triggers.new_record
+wisco exec pick_lists.object_types
+wisco exec methods.format_date
+wisco exec test                      # test the connection
+wisco exec actions                   # execute all actions
 ```
 
-### `list all [path]`
+For each ready `execute_*` file found in the fixture directory, wisco calls the Workato SDK and writes the result to `output_<name>.json`. If execution fails, the error and stack trace are written to `error_<name>.txt`.
 
-Prints the overview, actions, and triggers together.
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--input=file.json` | — | Use a specific input file instead of all `execute_*` files |
+| `--pagination` | `true` | Triggers: `true` = `.poll` (with pagination), `false` = `.poll_page` |
+| `--verbose` | `true` | Enable detailed SDK logging |
+| `--extended` | `true` | Auto-pass `input_fields.json`/`output_fields.json` as extended schema for actions/triggers |
+| `--closure=file.json` | — | Closure data file (triggers: simulate a subsequent poll) |
+| `--config-fields=file.json` | — | config_fields data file |
+| `--continue=file.json` | — | Continue data file (multistep actions) |
+| `--extended-input-schema=file.json` | — | Override the auto-detected extended input schema |
+| `--extended-output-schema=file.json` | — | Override the auto-detected extended output schema |
+| `--debug` | `false` | Print ExecCommand call details |
+
+For `--closure`, `--config-fields`, `--continue`, `--extended-input-schema`, and `--extended-output-schema`: if you supply a bare filename (e.g. `closure.json`) it is resolved relative to the item's fixture directory. A path with directory separators is used as-is.
+
+**Testing a connection:**
 
 ```bash
-bundle exec ruby wisco.rb list all
+wisco exec test
+wisco exec test --no-verbose
 ```
 
-### `exec <path> [target_dir]`
+Credentials come from `settings.yaml` in the connector directory. Output is written to `fixtures/connection/test/output_test.json`.
 
-Runs connector execution flows.
+---
 
-Accepted path forms:
+### `wisco pull [target_dir]`
 
-- `actions.some_action`
-- `triggers.some_trigger`
-- `actions`
-- `triggers`
-- `some_action` or `some_trigger` when the key is unique across sections
-
-#### Field mode
-
-Use field mode to generate fixture files for a connector method:
+Downloads connector data from the Workato Developer API.
 
 ```bash
-bundle exec ruby wisco.rb exec actions.get_users --mode=fields
+wisco pull
+wisco pull --what=code
+wisco pull --what=all
+wisco pull --title="My Connector"
 ```
 
-This creates files under `fixtures/<section>/<key>/`, including:
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--what` | `all` | Comma-separated: `all`, `code`, `logo`, `versions`, `meta` |
+| `--title` | *(from connector file)* | Connector title to search for |
+| `--debug` | `false` | Show API call details |
 
-- `input_fields.json`
-- `output_fields.json`
-- `execute_input.json`
+Downloaded files are saved to `.wisco/pull/` inside the target directory.
 
-The generated `execute_input.json` starts with a sentinel comment so you can distinguish an untouched template from real input.
+Requires `workato_developer_api.hostname` and `workato_developer_api.api_token` in `.wisco/config.json` (set by `wisco init`, token prompted on first use).
 
-#### Execute mode
+---
 
-Use execute mode to run one or more prepared inputs:
+### `wisco push [target_dir]`
+
+Pushes the connector to the Workato platform.
 
 ```bash
-bundle exec ruby wisco.rb exec actions.get_users --mode=execute
-bundle exec ruby wisco.rb exec actions.get_users --mode=execute --input=execute_input.json
+wisco push
+wisco push --title="My Connector" --notes="Fix pagination bug"
 ```
 
-Outputs are written into the same fixture directory as:
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--title` | *(from config or connector file)* | Connector title |
+| `--notes` | *(prompted)* | Version notes |
+| `--folder` | — | Workato folder ID |
+| `--verbose` | `true` | Enable detailed SDK logging |
+| `--debug` | `false` | Show push call details |
 
-- `output_<input>.json`
-- `error_<input>.txt` when execution fails
+---
 
-#### Exec options
+## Fixture Directory Structure
 
-- `--mode=execute` runs the action or trigger execution path
-- `--mode=fields` fetches input and output field schemas
-- `--input=file.json` selects a specific execute input file
-- `--overwrite=true` overwrites a generated execute input template
-- `--debug` prints execution details
+```
+fixtures/
+├── actions/
+│   └── get_user/
+│       ├── execute_input.json     ← edit this (remove sentinel line)
+│       ├── input_fields.json
+│       └── output_fields.json
+├── triggers/
+│   └── new_record/
+│       ├── execute_input.json
+│       ├── input_fields.json
+│       └── output_fields.json
+├── pick_lists/
+│   └── object_types/
+│       └── execute_input.json     ← only created if the pick list takes parameters
+├── methods/
+│   └── format_date/
+│       └── execute_input.json     ← positional array of argument values
+└── connection/
+    └── test/
+        └── output_test.json       ← written by `wisco exec test`
+```
 
-## Configuration
+---
 
-Wisco uses `.wisco.json` in the target connector directory.
-
-At minimum, it stores:
-
-- `connector.path`
-- `connector.file`
-
-It may also contain connection data used during execution.
-
-## Typical Workflow
+## Typical Development Workflow
 
 ```bash
-bundle exec ruby wisco.rb init
-bundle exec ruby wisco.rb list all
-bundle exec ruby wisco.rb exec actions.get_users --mode=fields
-# edit fixtures/actions/get_users/execute_input.json
-bundle exec ruby wisco.rb exec actions.get_users --mode=execute
+# 1. Set up the project
+wisco init
+
+# 2. Inspect what the connector exposes
+wisco list all
+
+# 3. Generate fixture templates for an action
+wisco fixtures actions.get_user
+
+# 4. Fill in execute_input.json, then remove the sentinel comment line
+
+# 5. Execute against live credentials
+wisco exec actions.get_user
+
+# 6. Review output
+cat fixtures/actions/get_user/output_execute_input.json
+
+# 7. Test the connection at any time
+wisco exec test
 ```
-
-## Project Structure
-
-```text
-wisco.rb
-wisco.bat
-lib/
-  config.rb
-  connector.rb
-  commands/
-    init.rb
-    list.rb
-    exec.rb
-helpers/
-```
-
-## Development Notes
-
-- The project uses `Workato::CLI::ExecCommand` from the Workato Connector SDK.
-- Connector files are evaluated locally to discover and load connector definitions.
-- `connector.rb` is preferred during detection, but other `.rb` files in the target directory are also considered.
-
