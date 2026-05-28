@@ -1,3 +1,15 @@
-.wisco/*
-/master.key
+# wisco working directory
+.wisco/
+
+# Workato SDK files
+master.key
+
+# Exclude error files from fixtures
+fixtures/*/*/error*.txt
+
+# Exclude local working data
+# Standardized local working data
 working/*
+!working/.gitkeep
+*.tmp
+*.bak
