@@ -22,6 +22,7 @@ require_relative 'wisco/commands/exec'
 require_relative 'wisco/commands/fixtures'
 require_relative 'wisco/commands/pull'
 require_relative 'wisco/commands/push'
+require_relative 'wisco/commands/schema'
 
 module Wisco
   class CLI < Thor
@@ -175,6 +176,38 @@ module Wisco
         what:  options[:what],
         title: options[:title],
         debug: options[:debug]
+      )
+    end
+
+    desc 'schema INPUT_FILE [TARGET_DIR]', 'Generate a schema from a JSON or CSV sample file'
+    long_desc <<~DESC
+      Calls the Workato API to generate a schema from a sample JSON or CSV file.
+      File type is auto-detected from the extension (.json or .csv).
+      Output defaults to Ruby hash format; use --format=json for raw JSON.
+
+      Requires workato_developer_api hostname and api_token in #{WISCO_DIR}/#{CONFIG_FILENAME}.
+      If not set, you will be prompted on first run.
+    DESC
+    option :format,        type: :string,  default: 'ruby',       enum: %w[ruby json],
+                           desc: 'Output format: ruby (default) or json'
+    option :ruby_options,  type: :string,  default: 'multi_line', enum: %w[single_line multi_line],
+                           desc: 'Ruby output style: single_line or multi_line (default)'
+    option :'col-sep',     type: :string,  default: 'comma',
+                           enum: %w[comma space tab colon semicolon pipe],
+                           desc: 'CSV column separator (default: comma)'
+    option :output,        type: :string,  lazy_default: '',
+                           desc: 'Write output to file. Omit value to auto-name from input file ' \
+                                 '(e.g. input.json → input.schema.rb / input.schema.json)'
+    option :debug,         type: :boolean, default: false,         desc: 'Show API call details'
+    def schema(input_file, target_dir = nil)
+      Wisco::Commands::Schema.run(
+        input_file,
+        target_dir || Dir.pwd,
+        format:       options[:format],
+        ruby_options: options[:ruby_options],
+        col_sep:      options[:col_sep],
+        output:       options[:output],
+        debug:        options[:debug]
       )
     end
   end
