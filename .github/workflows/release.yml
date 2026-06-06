@@ -1,0 +1,66 @@
+name: Release Gem
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write   # needed to push the git tag and create a GitHub Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history so tag push works
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '2.7.6'
+          bundler-cache: true     # runs bundle install and caches gems
+
+      - name: Check if version changed
+        id: version
+        run: |
+          local=$(ruby -e "require_relative 'lib/wisco/version'; puts Wisco::VERSION")
+          published=$(curl -sf https://rubygems.org/api/v1/gems/wisco.json \
+            | ruby -rjson -e "puts JSON.parse(STDIN.read)['version']" 2>/dev/null \
+            || echo "none")
+          echo "local=$local"         >> "$GITHUB_OUTPUT"
+          echo "published=$published" >> "$GITHUB_OUTPUT"
+          if [ "$local" = "$published" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Version $local already published — skipping release."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "New version detected: $local (published: $published)"
+          fi
+
+      - name: Build gem
+        if: steps.version.outputs.changed == 'true'
+        run: gem build wisco.gemspec
+
+      - name: Push to RubyGems
+        if: steps.version.outputs.changed == 'true'
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+        run: gem push wisco-${{ steps.version.outputs.local }}.gem
+
+      - name: Create git tag
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ steps.version.outputs.local }}
+          git push origin ${{ steps.version.outputs.local }}
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.local }}
+          name: v${{ steps.version.outputs.local }}
+          files: wisco-${{ steps.version.outputs.local }}.gem
+          generate_release_notes: true
