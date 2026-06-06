@@ -4,7 +4,9 @@
 # Workato SDK files
 master.key
 
-# Exclude error files from fixtures
+# wisco fixtures
+fixtures/connection/test/output_test.json
+fixtures/actions/*/execute*.json 
 fixtures/*/*/error*.txt
 
 # Exclude local working data
