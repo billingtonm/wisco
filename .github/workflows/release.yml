@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0          # full history so tag push works
 
@@ -26,7 +26,7 @@ jobs:
       - name: Check if version changed
         id: version
         run: |
-          local=$(ruby -e "require_relative 'lib/wisco/version'; puts Wisco::VERSION")
+          local=$(ruby -e "require './lib/wisco/version'; puts Wisco::VERSION")
           published=$(curl -sf https://rubygems.org/api/v1/gems/wisco.json \
             | ruby -rjson -e "puts JSON.parse(STDIN.read)['version']" 2>/dev/null \
             || echo "none")
