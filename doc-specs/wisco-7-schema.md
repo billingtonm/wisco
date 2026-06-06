@@ -37,6 +37,9 @@ In this example `WORKATO_BASE_URL` value will be `https://app.au.workato.com`
 
 Wisco will supply these values to the Workato SDK CLI command. (If they are not specified, then the user should provide them. (In a similar fashion to how the other commands (eg: `pull` ) do this).
 
+### 4. Only outputs to stdout
+wisco will support writing to a file as an option.
+
 ## Command
 The command to generate a schema will be:
 
@@ -53,11 +56,22 @@ The schema definition is returned to stdout.
 `--col_sep` | The column separators in the CSV file provided. Default: comma. Possible values: comma, space, tab, colon, semicolon, pipe. (This option is supported by the )
 `--format` | The schema output format. Options=[`ruby`,`json`]. Default is `ruby`: The output will be a ruby array of hashes.
 `--ruby_options` | Options for when the output format is `ruby` (`--format=ruby`). <br/> Options: `single_line`,`multi_line`. <br> `single_line`: output keys for field are all on a single line. <br> `multi_line`: a field definition is output over multiple lines, with one key per line. <br> Default is `multi_line`.
+`--save` | Writes output to a file. If no file is specified, it will use the input_file name an add '.schema' to it. <br> eg: If input is `input_file.json` then output file name is `input_file.schema.<ext>` where `<ext>` is based on the the `--format`. *See below*
 
 
 #### Notes
 1. `--col_sep` is a standard Workato option (however workato calls it `col-sep`)
 2. `--format`: Workato CLI only supoports JSON being returned, so wisco will handle the json->ruby conversion. (see *JSON to Ruby conversion* below for further information)
+3. `--save` if specified but with no file, then the output file name will be:
+
+eg: input = `input_file.json`
+| `--format` | extension | output file name |
+|-|-|-|
+|`ruby`| `.rb` | `input_file.schema.rb` |
+|`json`| `.json` | `input_file.schema.json` |
+
+
+
 
 #### Command examples
 1. `wisco schema input_file.json`
@@ -121,3 +135,34 @@ Each key is listed on a single line. The field definition spans multiple lines.
 # Implementation
 
 wisco should use the `Workato::CLI::SchemaCommand` to handle the inital schema generation (to JSON).
+
+## Error handling
+If the input file is a JSON array, Workato's Generate Schema API returns the exception `Invalid JSON document(document should correspond to an object)`.
+
+This is because it expects the top-level to be an object.
+eg: input as a top-level array:
+```json
+[
+  {
+    "id": "gid://shopify/Order/6570948558891",
+  }
+]
+```
+
+
+wisco will assist the user with this by:
+1. automatically encapsulating the array into an object with key `input`. ie:
+```json
+{"input":
+    [
+        {
+            "id": "gid://shopify/Order/6570948558891",
+        }
+    ]
+}
+```
+
+2. Informing the user that the input was an array, so the 'input' root-level object was added
+3. Submitting this new structure to the Workato API.
+
+Note: wisco **should not** update the input file during this process.
