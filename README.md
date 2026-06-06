@@ -178,6 +178,33 @@ Credentials come from `settings.yaml` in the connector directory. Output is writ
 
 ---
 
+### `wisco schema <input_file> [target_dir]`
+
+Generates a Workato schema from a JSON or CSV sample file by calling the Workato Developer API. File type is auto-detected from the extension.
+
+```bash
+wisco schema sample.json                        # Ruby output (default)
+wisco schema sample.json --format=json          # raw JSON output
+wisco schema sample.json --ruby_options=single_line
+wisco schema sample.csv --col-sep=semicolon
+wisco schema sample.json --save                 # save to sample.schema.rb
+wisco schema sample.json --save=my_schema.rb    # save to a specific file
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--format` | `ruby` | Output format: `ruby` or `json` |
+| `--ruby_options` | `multi_line` | Ruby style: `single_line` or `multi_line` |
+| `--col-sep` | `comma` | CSV column separator: `comma`, `space`, `tab`, `colon`, `semicolon`, `pipe` |
+| `--save[=file]` | — | Save output to file. Omit value to auto-name (e.g. `sample.json` → `sample.schema.rb`) |
+| `--debug` | `false` | Show API call details |
+
+If the input JSON is a top-level array, wisco automatically wraps it in `{"input": [...]}` (required by the Workato API) and prints an `[INFO]` message. The source file is not modified.
+
+Requires `workato_developer_api.hostname` and `workato_developer_api.api_token` in `.wisco/config.json` (token prompted on first use).
+
+---
+
 ### `wisco pull [target_dir]`
 
 Downloads connector data from the Workato Developer API.
