@@ -19,7 +19,9 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '2.7.6'
-          bundler-cache: true     # runs bundle install and caches gems
+          # bundler-cache omitted — bundle install is not needed for gem build/push,
+          # and the repo Gemfile.lock references wisco as a path gem which causes
+          # bundler frozen-mode failures on CI.
 
       - name: Check if version changed
         id: version
