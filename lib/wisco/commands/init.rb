@@ -2,22 +2,14 @@ require 'erb'
 require 'fileutils'
 require_relative '../config'
 require_relative '../connector'
+require_relative '../profile'
 
 module Wisco
   module Commands
     module Init
-      HOSTNAMES = [
-        { region: 'US Data Center', hostname: 'www.workato.com'    },
-        { region: 'EU Data Center', hostname: 'app.eu.workato.com' },
-        { region: 'JP Data Center', hostname: 'app.jp.workato.com' },
-        { region: 'SG Data Center', hostname: 'app.sg.workato.com' },
-        { region: 'AU Data Center', hostname: 'app.au.workato.com' },
-        { region: 'IL Data Center', hostname: 'app.il.workato.com' },
-      ].freeze
-
       module_function
 
-      def run(target_dir)
+      def run(target_dir, profile: nil)
         target_dir = File.expand_path(target_dir)
 
         unless Dir.exist?(target_dir)
@@ -46,7 +38,7 @@ module Wisco
         config['connector']['path'] = target_dir
         config['connector']['file'] = connector_file
 
-        prompt_hostname(config)
+        prompt_hostname(config, profile: profile)
 
         Wisco::Config.save_config(config_path, config)
         puts "Config written to #{config_path}"
@@ -56,32 +48,78 @@ module Wisco
         deploy_github_workflow(target_dir, connector_file, config)
       end
 
-      def prompt_hostname(config)
+      def prompt_hostname(config, profile: nil)
         api_cfg = config['workato_developer_api'] ||= {}
-        current = api_cfg['hostname']
 
-        if current && !current.strip.empty?
-          puts "Current Workato hostname: #{current}"
-          print 'Keep this? (y/n): '
-          return if $stdin.gets.strip.downcase == 'y'
-        end
-
-        puts 'Select your Workato instance:'
-        HOSTNAMES.each_with_index do |entry, i|
-          puts "  #{i + 1}. #{entry[:hostname]}  (#{entry[:region]})"
-        end
-
-        loop do
-          print "Enter number (1-#{HOSTNAMES.size}): "
-          input = $stdin.gets.strip
-          index = input.to_i
-          if index >= 1 && index <= HOSTNAMES.size
-            api_cfg['hostname'] = HOSTNAMES[index - 1][:hostname]
-            puts "Hostname set to: #{api_cfg['hostname']}"
-            return
+        # --profile flag: skip all prompts and attach the named profile
+        if profile
+          unless Wisco::Profiles.exists?(profile)
+            Wisco::TerminalOutput.emit_error("Error: Profile \"#{profile}\" not found in #{Wisco::Profiles.profiles_path}.")
+            Wisco::TerminalOutput.emit_error("       Run 'wisco profile list' to see available profiles.")
+            exit 1
           end
-          warn "Invalid selection. Please enter a number between 1 and #{HOSTNAMES.size}."
+          api_cfg.delete('hostname')
+          api_cfg.delete('api_token')
+          api_cfg['profile'] = profile
+          puts "Using profile: #{profile}"
+          return
         end
+
+        # If profiles exist, offer them alongside "enter manually"
+        existing_profiles = Wisco::Profiles.all
+        unless existing_profiles.empty?
+          current_profile = api_cfg['profile'].to_s.strip
+          current_host    = api_cfg['hostname'].to_s.strip
+
+          if !current_profile.empty?
+            puts "Current Workato profile: #{current_profile}"
+            print 'Keep this? (y/n): '
+            return if $stdin.gets.strip.downcase == 'y'
+          elsif !current_host.empty?
+            puts "Current Workato hostname: #{current_host} (inline credentials)"
+            print 'Keep this? (y/n): '
+            return if $stdin.gets.strip.downcase == 'y'
+          end
+
+          puts 'Workato API credentials'
+          name_width = existing_profiles.keys.map(&:length).max
+          existing_profiles.each_with_index do |(prof_name, p), i|
+            puts "  #{i + 1}. #{prof_name.ljust(name_width)}  (#{p['hostname']})"
+          end
+          manual_index = existing_profiles.size + 1
+          puts "  #{manual_index}. Enter credentials manually"
+          loop do
+            print "Select an option (1-#{manual_index}): "
+            input = $stdin.gets.strip
+            index = input.to_i
+            if index >= 1 && index < manual_index
+              chosen = existing_profiles.keys[index - 1]
+              api_cfg.delete('hostname')
+              api_cfg.delete('api_token')
+              api_cfg['profile'] = chosen
+              puts "Using profile: #{chosen}"
+              return
+            elsif index == manual_index
+              break # fall through to manual hostname prompt below
+            else
+              warn "Invalid selection. Please enter a number between 1 and #{manual_index}."
+            end
+          end
+        else
+          # No profiles — check for existing inline hostname
+          current = api_cfg['hostname']
+          if current && !current.strip.empty?
+            puts "Current Workato hostname: #{current}"
+            print 'Keep this? (y/n): '
+            return if $stdin.gets.strip.downcase == 'y'
+          end
+        end
+
+        # Manual hostname selection
+        hostname = Wisco::Profiles.prompt_hostname_selection
+        api_cfg.delete('profile')
+        api_cfg['hostname'] = hostname
+        puts "Hostname set to: #{hostname}"
       end
 
       def update_gitignore(target_dir)
@@ -128,7 +166,12 @@ module Wisco
           end
         end
 
-        hostname         = config.dig('workato_developer_api', 'hostname')
+        api_cfg  = config['workato_developer_api'] || {}
+        hostname = if api_cfg['profile'].to_s.strip != ''
+                     Wisco::Profiles.get(api_cfg['profile'])&.dig('hostname')
+                   else
+                     api_cfg['hostname']
+                   end
         workato_base_url = "https://#{hostname}"
         connector_name   = connector_file
 

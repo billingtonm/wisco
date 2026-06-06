@@ -74,6 +74,37 @@ The config is stored at `.wisco/config.json` inside the connector project:
 
 ---
 
+### `wisco profile <subcommand>`
+
+Manages named Workato connection profiles stored centrally in `~/.wisco/profiles.yaml`. Profiles let you reuse credentials across multiple connector projects — when a token rotates, update the profile once and every project that references it picks up the change automatically.
+
+| Subcommand | Description |
+|------------|-------------|
+| `add [name]` | Create a new profile (prompts for hostname and API token; suggests a name from the datacenter) |
+| `list` | List all profiles |
+| `show <name>` | Show a profile's hostname and masked token |
+| `edit <name>` | Update a profile's hostname or API token |
+| `remove <name>` | Remove a profile |
+| `use <name>` | Attach a profile to the current connector project |
+| `extract [name]` | Save this project's inline credentials as a named profile |
+| `current` | Show which profile (or inline credentials) this project is using |
+
+```bash
+wisco profile add                     # create a profile (name suggested from datacenter)
+wisco profile add my-profile          # create with an explicit name
+wisco profile list                    # list all profiles
+wisco profile use my-profile          # attach a profile to the current project
+wisco profile extract                 # migrate inline credentials to a profile
+wisco profile edit my-profile         # update hostname or token
+wisco profile current                 # show what this project is using
+```
+
+Profiles are stored in `~/.wisco/profiles.yaml`. Existing projects with inline credentials in `.wisco/config.json` continue to work unchanged — profile support is opt-in.
+
+`wisco init` also accepts `--profile <name>` to attach a profile during project setup, and will offer a profile selection menu if any profiles already exist.
+
+---
+
 ### `wisco list [subcommand] [path]`
 
 Inspects a connector's structure without executing anything.
