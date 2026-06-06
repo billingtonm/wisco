@@ -77,9 +77,12 @@ module Wisco
       # ── API call ──────────────────────────────────────────────────────────
 
       def fetch_schema(input_file, hostname, api_token, col_sep:, debug:)
-        ext     = File.extname(input_file).delete_prefix('.')  # 'json' or 'csv'
-        url     = "https://#{hostname}#{API_GENERATE_SCHEMA_PATH}/#{ext}"
-        payload = { sample: File.read(input_file) }
+        ext    = File.extname(input_file).delete_prefix('.')  # 'json' or 'csv'
+        url    = "https://#{hostname}#{API_GENERATE_SCHEMA_PATH}/#{ext}"
+        sample = File.read(input_file)
+        sample = wrap_if_array(sample) if ext == 'json'
+
+        payload = { sample: sample }
         payload[:col_sep] = col_sep if ext == 'csv'
 
         if debug
@@ -106,6 +109,20 @@ module Wisco
       rescue StandardError => e
         Wisco::TerminalOutput.emit_error("Error generating schema: #{e.message}")
         exit 1
+      end
+
+      # If the JSON content is a top-level array, wrap it in {"input": [...]}
+      # so the Workato API accepts it (it requires a top-level object).
+      # Returns the (possibly modified) JSON string; never modifies the source file.
+      def wrap_if_array(json_content)
+        parsed = JSON.parse(json_content)
+        return json_content unless parsed.is_a?(Array)
+
+        Wisco::TerminalOutput.emit_info('[INFO] Input JSON is a top-level array.')
+        Wisco::TerminalOutput.emit_info('[INFO] Wrapping in {"input": [...]} for Workato API compatibility.')
+        JSON.generate({ 'input' => parsed })
+      rescue JSON::ParseError
+        json_content  # unparseable — send as-is and let the API report the error
       end
 
       # ── JSON output ───────────────────────────────────────────────────────
