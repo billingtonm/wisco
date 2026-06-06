@@ -15,6 +15,7 @@ module Wisco
 end
 
 require_relative 'wisco/config'
+require_relative 'wisco/profile'
 require_relative 'wisco/connector'
 require_relative 'wisco/commands/init'
 require_relative 'wisco/commands/list'
@@ -23,6 +24,7 @@ require_relative 'wisco/commands/fixtures'
 require_relative 'wisco/commands/pull'
 require_relative 'wisco/commands/push'
 require_relative 'wisco/commands/schema'
+require_relative 'wisco/commands/profile'
 
 module Wisco
   class CLI < Thor
@@ -53,8 +55,9 @@ module Wisco
 
     desc 'init [PATH]', "Detect connector and initialise #{WISCO_DIR}/"
     long_desc "Searches PATH (default: current directory) for a valid connector file and writes #{WISCO_DIR}/#{CONFIG_FILENAME}."
+    option :profile, type: :string, desc: 'Attach a named connection profile instead of entering credentials manually'
     def init(path = nil)
-      Wisco::Commands::Init.run(path || Dir.pwd)
+      Wisco::Commands::Init.run(path || Dir.pwd, profile: options[:profile])
     end
 
     desc 'list [SUBCOMMAND] [PATH]', 'Show connector structure'
@@ -178,6 +181,20 @@ module Wisco
         debug: options[:debug]
       )
     end
+
+    desc 'profile SUBCOMMAND ...ARGS', 'Manage connection profiles (~/.wisco/profiles.yaml)'
+    long_desc <<~DESC
+      Subcommands:
+        add [NAME]     Create a new profile
+        list           List all profiles
+        show NAME      Show profile details
+        edit NAME      Update a profile's hostname or API token
+        remove NAME    Remove a profile
+        use NAME       Attach a profile to this connector project
+        extract [NAME] Save this project's inline credentials as a profile
+        current        Show which profile this project is using
+    DESC
+    subcommand 'profile', Wisco::Commands::Profile
 
     desc 'schema INPUT_FILE [TARGET_DIR]', 'Generate a schema from a JSON or CSV sample file'
     long_desc <<~DESC
