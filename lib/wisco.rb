@@ -195,8 +195,8 @@ module Wisco
     option :'col-sep',     type: :string,  default: 'comma',
                            enum: %w[comma space tab colon semicolon pipe],
                            desc: 'CSV column separator (default: comma)'
-    option :output,        type: :string,  lazy_default: '',
-                           desc: 'Write output to file. Omit value to auto-name from input file ' \
+    option :save,          type: :string,  lazy_default: '',
+                           desc: 'Save output to file. Omit value to auto-name from input file ' \
                                  '(e.g. input.json → input.schema.rb / input.schema.json)'
     option :debug,         type: :boolean, default: false,         desc: 'Show API call details'
     def schema(input_file, target_dir = nil)
@@ -206,7 +206,7 @@ module Wisco
         format:       options[:format],
         ruby_options: options[:ruby_options],
         col_sep:      options[:col_sep],
-        output:       options[:output],
+        output:       options[:save],
         debug:        options[:debug]
       )
     end
