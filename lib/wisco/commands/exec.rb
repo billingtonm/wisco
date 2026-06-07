@@ -4,6 +4,7 @@ require 'workato/cli/exec_command'
 require_relative '../config'
 require_relative '../connector'
 require_relative '../path_utils'
+require_relative '../exec_script'
 
 module Wisco
   module Commands
@@ -71,18 +72,28 @@ module Wisco
           end
 
           input_files.each do |input_file|
-            execute_one(section, key, input_file, fixtures_dir,
-                        connector_full_path, connection, pagination: pagination, verbose: verbose,
-                        extended: extended, closure: closure, config_fields: config_fields,
-                        continue: continue, extended_input_schema: extended_input_schema,
-                        extended_output_schema: extended_output_schema, debug: debug)
+            if File.extname(input_file).downcase == '.rb'
+              execute_ruby_script(section, key, input_file, fixtures_dir, target_dir,
+                                  connector_full_path, connection, config,
+                                  pagination: pagination, verbose: verbose,
+                                  extended: extended, closure: closure, config_fields: config_fields,
+                                  continue: continue, extended_input_schema: extended_input_schema,
+                                  extended_output_schema: extended_output_schema, debug: debug)
+            else
+              execute_one(section, key, input_file, fixtures_dir,
+                          connector_full_path, connection, pagination: pagination, verbose: verbose,
+                          extended: extended, closure: closure, config_fields: config_fields,
+                          continue: continue, extended_input_schema: extended_input_schema,
+                          extended_output_schema: extended_output_schema, debug: debug)
+            end
           end
         end
       end
 
       # Resolve the list of input files to execute.
       # If an explicit input filename/path is given, use that (relative to fixtures_dir).
-      # Otherwise glob execute_* in fixtures_dir and exclude files still containing the sentinel.
+      # Otherwise glob execute_*.{json,rb} in fixtures_dir and exclude files still containing
+      # their respective sentinel.
       def resolve_input_files(input, fixtures_dir)
         if input
           path = File.absolute_path?(input) ? input : File.join(fixtures_dir, input)
@@ -92,13 +103,21 @@ module Wisco
           end
           [path]
         else
-          Dir.glob(File.join(fixtures_dir, 'execute_*.json')).select do |f|
+          Dir.glob(File.join(fixtures_dir, 'execute_*.{json,rb}')).select do |f|
             File.file?(f) && !file_has_sentinel?(f)
           end
         end
       end
 
+      # Returns true if the file should be skipped. Each input format has its own
+      # sentinel convention:
+      #   .json — first line exactly equals Wisco::Commands::Fixtures::SENTINEL
+      #   .rb   — first non-blank line matches `# WISCO_SKIP`
       def file_has_sentinel?(path)
+        if File.extname(path).downcase == '.rb'
+          return Wisco::ExecScript.sentinel?(path)
+        end
+
         first_line = begin
           File.open(path, &:readline).chomp
         rescue StandardError
@@ -223,8 +242,121 @@ module Wisco
           cmd = Workato::CLI::ExecCommand.new(path: exec_path, options: options)
           cmd.call
         rescue StandardError => e
+          FileUtils.rm_f(output_file)
           File.write(error_file, "#{e.class}: #{e.message}\n\n#{e.backtrace.join("\n")}\n")
           Wisco::TerminalOutput.emit_error("Error executing #{section}.#{key} with #{input_file ? File.basename(input_file) : 'no input'}: #{e.message}")
+          Wisco::TerminalOutput.emit_error("  Details written to: #{error_file}")
+          return
+        end
+
+        FileUtils.rm_f(error_file)
+
+        return unless File.exist?(output_file)
+
+        pretty = JSON.pretty_generate(JSON.parse(File.read(output_file)))
+        File.write(output_file, pretty + "\n")
+        puts "  Written: #{output_file}"
+      end
+
+      # Handles `execute_*.rb` scripts: evaluates the script to produce dynamic
+      # input, writes it to <subdir>/input.json, runs the connector item via
+      # ExecCommand, and writes <subdir>/output.json or <subdir>/error.txt.
+      # The subdirectory is named after the script (without .rb), e.g.
+      # execute_input.rb -> execute_input/.
+      def execute_ruby_script(section, key, script_path, fixtures_dir, target_dir,
+                              connector_full_path, connection, config,
+                              pagination: true, verbose: true, debug: false,
+                              extended: true, closure: nil, config_fields: nil, continue: nil,
+                              extended_input_schema: nil, extended_output_schema: nil)
+        subdir      = File.join(fixtures_dir, File.basename(script_path, '.rb'))
+        FileUtils.mkdir_p(subdir)
+        input_file  = File.join(subdir, 'input.json')
+        output_file = File.join(subdir, 'output.json')
+        error_file  = File.join(subdir, 'error.txt')
+
+        # Step 1: evaluate the script to obtain dynamic input
+        connection_name = config['connection'] || 'default'
+
+        begin
+          generated = Wisco::ExecScript.evaluate(
+            script_path:         script_path,
+            connector_full_path: connector_full_path,
+            target_dir:          target_dir,
+            connection_name:     connection_name
+          )
+        rescue StandardError => e
+          FileUtils.rm_f(input_file)
+          FileUtils.rm_f(output_file)
+          File.write(error_file, "#{e.class}: #{e.message}\n\n#{Array(e.backtrace).join("\n")}\n")
+          Wisco::TerminalOutput.emit_error("Error evaluating #{File.basename(script_path)}: #{e.message}")
+          Wisco::TerminalOutput.emit_error("  Details written to: #{error_file}")
+          return
+        end
+
+        File.write(input_file, JSON.pretty_generate(generated) + "\n")
+        puts "  Generated: #{input_file}"
+
+        # Step 2: build ExecCommand options (mirrors execute_one)
+        use_args  = %w[pick_lists methods].include?(section)
+        exec_path = if use_args
+                      "#{section}.#{key}"
+                    elsif section == 'triggers'
+                      pagination ? "#{section}.#{key}.poll" : "#{section}.#{key}.poll_page"
+                    else
+                      "#{section}.#{key}.execute"
+                    end
+
+        options = { connector: connector_full_path, output: output_file }
+        options[:connection] = connection if connection
+        options[:verbose]    = verbose
+        if use_args
+          options[:args] = input_file
+        else
+          options[:input] = input_file
+        end
+
+        options[:closure]       = resolve_option_path(closure,       fixtures_dir) if closure
+        options[:config_fields] = resolve_option_path(config_fields, fixtures_dir) if config_fields
+        options[:continue]      = resolve_option_path(continue,      fixtures_dir) if continue
+
+        # extended schema files still live at the item's fixtures_dir (not the subdir)
+        unless use_args
+          eis = if extended_input_schema
+                  resolve_option_path(extended_input_schema, fixtures_dir)
+                elsif extended
+                  f = File.join(fixtures_dir, 'input_fields.json')
+                  File.exist?(f) ? f : nil
+                end
+          options[:extended_input_schema] = eis if eis
+
+          eos = if extended_output_schema
+                  resolve_option_path(extended_output_schema, fixtures_dir)
+                elsif extended
+                  f = File.join(fixtures_dir, 'output_fields.json')
+                  File.exist?(f) ? f : nil
+                end
+          options[:extended_output_schema] = eos if eos
+        end
+
+        if debug
+          warn "[exec.rb] script:      #{script_path}"
+          warn "[exec.rb] subdir:      #{subdir}"
+          warn "[exec.rb] path:        #{exec_path}"
+          warn "[exec.rb] connector:   #{connector_full_path}"
+          warn "[exec.rb] connection:  #{connection.inspect}"
+          warn "[exec.rb] #{use_args ? 'args' : 'input'}:       #{input_file}"
+          warn "[exec.rb] output:      #{output_file}"
+        end
+
+        # Step 3: invoke ExecCommand against the generated input
+        begin
+          cmd = Workato::CLI::ExecCommand.new(path: exec_path, options: options)
+          cmd.call
+        rescue StandardError => e
+          FileUtils.rm_f(input_file)
+          FileUtils.rm_f(output_file)
+          File.write(error_file, "#{e.class}: #{e.message}\n\n#{e.backtrace.join("\n")}\n")
+          Wisco::TerminalOutput.emit_error("Error executing #{section}.#{key} with #{File.basename(script_path)}: #{e.message}")
           Wisco::TerminalOutput.emit_error("  Details written to: #{error_file}")
           return
         end

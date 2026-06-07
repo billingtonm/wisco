@@ -159,10 +159,13 @@ wisco fixtures actions --overwrite   # regenerate even if already edited
 | `output_fields.json` | Schema of the output fields |
 | `execute_input.json` | Template input for `wisco exec` — edit this, removing the sentinel comment |
 | `config_fields.json` | Created if the item has `config_fields` — fill this in first, then re-run |
+| `execute_input.rb` *(with `--ruby`)* | Template Ruby script for dynamic input — see `wisco exec` below |
 
 The `execute_input.json` file starts with a sentinel comment line. Remove it once you have filled in the values — `wisco exec` skips files that still contain the sentinel.
 
-Options: `--overwrite`, `--debug`
+Options: `--overwrite`, `--ruby`, `--debug`
+
+Pass `--ruby` to also scaffold an `execute_input.rb` template alongside the JSON one. Ruby scripts let you generate input dynamically — useful for unique IDs, timestamps, or chained lookups against the connector itself.
 
 ---
 
@@ -180,6 +183,28 @@ wisco exec actions                   # execute all actions
 ```
 
 For each ready `execute_*` file found in the fixture directory, wisco calls the Workato SDK and writes the result to `output_<name>.json`. If execution fails, the error and stack trace are written to `error_<name>.txt`.
+
+**Dynamic input via Ruby scripts:** wisco also supports `execute_*.rb` fixtures whose last expression becomes the input. This lets you generate fresh values per run — unique order numbers, current timestamps, randomised test data, or chained lookups that fetch a real ID from the connector itself.
+
+```ruby
+# fixtures/actions/create_order/execute_input.rb
+require 'securerandom'
+{
+  order_number: "ORD-#{SecureRandom.hex(4).upcase}",
+  created_at:   Time.now.iso8601,
+  customer_id:  call_pick_list(:active_customers).first[1]
+}
+```
+
+Helpers available inside the script:
+
+| Helper | Purpose |
+|---|---|
+| `call_method(:name, *args)` | Invoke a connector `methods:` entry |
+| `call_pick_list(:name, *args)` | Invoke a connector `pick_lists:` entry |
+| `connection` | Hash of decrypted `settings.yaml` (or `settings.yaml.enc`) for the configured connection |
+
+Output for each `.rb` script lives in its own subdirectory (`<script_name>/input.json` + `output.json` + `error.txt` on failure) so it doesn't collide with the JSON run output. Skip a script by leaving `# WISCO_SKIP` as its first non-blank line. Scaffold a template with `wisco fixtures <path> --ruby`.
 
 **Options:**
 

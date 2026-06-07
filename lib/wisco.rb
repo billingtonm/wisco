@@ -127,12 +127,15 @@ module Wisco
         get_users           auto-detect section
     DESC
     option :overwrite, type: :boolean, default: false, desc: 'Overwrite execute_input.json even if user-edited'
+    option :ruby,      type: :boolean, default: false,
+                       desc: 'Also scaffold an execute_input.rb template for dynamic input scripts'
     option :debug,     type: :boolean, default: false, desc: 'Print ExecCommand call details'
     def fixtures(path_arg, target_dir = nil)
       Wisco::Commands::Fixtures.run(
         path_arg,
         target_dir || Dir.pwd,
         overwrite: options[:overwrite],
+        ruby:      options[:ruby],
         debug:     options[:debug]
       )
     end
