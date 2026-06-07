@@ -8,11 +8,34 @@ require_relative '../path_utils'
 module Wisco
   module Commands
     module Fixtures
-      SENTINEL = '# Remove this comment before updating. Files that include this line will be overwritten.'
+      SENTINEL    = '# Remove this comment before updating. Files that include this line will be overwritten.'
+      RB_SENTINEL = '# WISCO_SKIP'
+
+      RB_TEMPLATE = <<~RUBY
+        # WISCO_SKIP
+        # Remove the WISCO_SKIP line above once this script is ready to run.
+        #
+        # The last expression in this file becomes the input passed to the connector item.
+        # Helper methods available inside the script:
+        #   call_method(:name, *args)     — invoke a methods: entry on the connector
+        #   call_pick_list(:name, *args)  — invoke a pick_lists: entry on the connector
+        #   connection                     — Hash of decrypted settings.yaml(.enc)
+        #
+        # Example:
+        #   require 'securerandom'
+        #   {
+        #     order_number: "ORD-\#{SecureRandom.hex(4).upcase}",
+        #     created_at:   Time.now.iso8601
+        #   }
+
+        {
+          # TODO: fill in fields
+        }
+      RUBY
 
       module_function
 
-      def run(path_arg, target_dir, overwrite: false, debug: false)
+      def run(path_arg, target_dir, overwrite: false, ruby: false, debug: false)
         target_dir = File.expand_path(target_dir)
         config_path = Wisco.config_path(target_dir)
 
@@ -44,8 +67,10 @@ module Wisco
 
           if section == 'pick_lists'
             process_pick_list(key, connector, fixtures_dir, overwrite: overwrite)
+            generate_execute_input_rb(fixtures_dir, overwrite: overwrite) if ruby
           elsif section == 'methods'
             process_method(key, connector, fixtures_dir, overwrite: overwrite)
+            generate_execute_input_rb(fixtures_dir, overwrite: overwrite) if ruby
           else
             # ── config_fields pre-check ──────────────────────────────────────
             item   = connector[section.to_sym]&.[](key.to_sym)
@@ -76,6 +101,7 @@ module Wisco
             )
 
             generate_execute_input(input_fields_file, fixtures_dir, overwrite: overwrite, debug: debug)
+            generate_execute_input_rb(fixtures_dir, overwrite: overwrite) if ruby
 
             # ── output_fields ────────────────────────────────────────────────
             output_fields_file = File.join(fixtures_dir, 'output_fields.json')
@@ -130,6 +156,35 @@ module Wisco
 
         content  = "#{SENTINEL}\n#{JSON.pretty_generate(template)}\n"
         File.write(output_file, content)
+        puts "  Written: #{output_file}"
+      end
+
+      # Writes an `execute_input.rb` template into `fixtures_dir`. The template
+      # is prefixed with `# WISCO_SKIP` so it is identifiable as unedited and
+      # will be skipped by `wisco exec` until the user removes that line.
+      #
+      # Overwrite rules mirror generate_execute_input:
+      #   - File absent                       -> write
+      #   - File present, # WISCO_SKIP on L1  -> overwrite (still a template)
+      #   - File present, no sentinel         -> skip (user-edited); force with --overwrite
+      def generate_execute_input_rb(fixtures_dir, overwrite: false)
+        output_file = File.join(fixtures_dir, 'execute_input.rb')
+
+        if File.exist?(output_file)
+          first_line = begin
+            File.open(output_file, &:readline).chomp
+          rescue StandardError
+            ''
+          end
+          has_sentinel = first_line.strip == RB_SENTINEL
+
+          unless has_sentinel || overwrite
+            puts "  Skipped (user-edited): #{output_file}"
+            return
+          end
+        end
+
+        File.write(output_file, RB_TEMPLATE)
         puts "  Written: #{output_file}"
       end
 
