@@ -92,7 +92,7 @@ module Wisco
           end
           [path]
         else
-          Dir.glob(File.join(fixtures_dir, 'execute_*')).select do |f|
+          Dir.glob(File.join(fixtures_dir, 'execute_*.json')).select do |f|
             File.file?(f) && !file_has_sentinel?(f)
           end
         end
