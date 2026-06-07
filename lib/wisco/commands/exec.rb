@@ -55,7 +55,7 @@ module Wisco
             next
           end
 
-          input_files = resolve_input_files(input, fixtures_dir)
+          input_files = resolve_input_files(input, fixtures_dir, debug: debug)
 
           if input_files.empty?
             if %w[pick_lists methods].include?(section)
@@ -94,7 +94,10 @@ module Wisco
       # If an explicit input filename/path is given, use that (relative to fixtures_dir).
       # Otherwise glob execute_*.{json,rb} in fixtures_dir and exclude files still containing
       # their respective sentinel.
-      def resolve_input_files(input, fixtures_dir)
+      #
+      # In debug mode, prints which candidate files were found and which were
+      # skipped (because they still contain a sentinel comment).
+      def resolve_input_files(input, fixtures_dir, debug: false)
         if input
           path = File.absolute_path?(input) ? input : File.join(fixtures_dir, input)
           unless File.exist?(path)
@@ -103,8 +106,15 @@ module Wisco
           end
           [path]
         else
-          Dir.glob(File.join(fixtures_dir, 'execute_*.{json,rb}')).select do |f|
-            File.file?(f) && !file_has_sentinel?(f)
+          candidates = Dir.glob(File.join(fixtures_dir, 'execute_*.{json,rb}')).select { |f| File.file?(f) }
+          warn "[exec] candidate files: #{candidates.map { |f| File.basename(f) }}" if debug
+          candidates.reject do |f|
+            if file_has_sentinel?(f)
+              warn "[exec]   skipped (sentinel): #{File.basename(f)}" if debug
+              true
+            else
+              false
+            end
           end
         end
       end
