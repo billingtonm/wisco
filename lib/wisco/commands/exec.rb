@@ -1,4 +1,5 @@
 require 'fileutils'
+require 'tempfile'
 require 'workato/connector/sdk'
 require 'workato/cli/exec_command'
 require_relative '../config'
@@ -201,7 +202,11 @@ module Wisco
         options[:connection] = connection if connection
         options[:verbose]    = verbose
         if use_args
-          options[:args] = input_file if input_file
+          if input_file && section == 'methods'
+            options[:args] = normalize_method_args(input_file)
+          elsif input_file
+            options[:args] = input_file
+          end
         else
           options[:input] = input_file
         end
@@ -320,7 +325,7 @@ module Wisco
         options[:connection] = connection if connection
         options[:verbose]    = verbose
         if use_args
-          options[:args] = input_file
+          options[:args] = section == 'methods' ? normalize_ruby_method_args(input_file) : input_file
         else
           options[:input] = input_file
         end
@@ -378,6 +383,36 @@ module Wisco
         pretty = JSON.pretty_generate(JSON.parse(File.read(output_file)))
         File.write(output_file, pretty + "\n")
         puts "  Written: #{output_file}"
+      end
+
+      # The Workato SDK's InvokePath#invoke_method applies Array.wrap(args.last).flatten(1)
+      # when the last parameter is *args, which incorrectly unwraps array-valued positional
+      # arguments one level too many. These helpers compensate by pre-wrapping Array elements
+      # so that flatten(1) cancels out and the method receives the correct value.
+
+      # For JSON execute_input files (positional-args array format):
+      # [[{h1},{h2}]] → [[[{h1},{h2}]]] so SDK flatten(1) restores [[{h1},{h2}]] → method([{h1},{h2}])
+      def normalize_method_args(input_file)
+        parsed = JSON.parse(File.read(input_file))
+        return input_file unless parsed.is_a?(Array) && parsed.any? { |a| a.is_a?(Array) }
+
+        fixed = parsed.map { |a| a.is_a?(Array) ? [a] : a }
+        tmp = Tempfile.new(['wisco_args_', '.json'])
+        tmp.write(JSON.generate(fixed))
+        tmp.close
+        tmp.path
+      end
+
+      # For Ruby-script-generated input files (direct argument value):
+      # [{h1},{h2}] → [[{h1},{h2}]] so SDK flatten(1) restores [{h1},{h2}] → method([{h1},{h2}])
+      def normalize_ruby_method_args(input_file)
+        parsed = JSON.parse(File.read(input_file))
+        return input_file unless parsed.is_a?(Array)
+
+        tmp = Tempfile.new(['wisco_args_', '.json'])
+        tmp.write(JSON.generate([parsed]))
+        tmp.close
+        tmp.path
       end
     end
   end
