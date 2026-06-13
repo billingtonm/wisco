@@ -35,6 +35,42 @@ wisco fixtures actions.get_user   # generate fixture templates
 wisco exec actions.get_user       # run the action against live credentials
 ```
 
+### Typical Development Workflow
+
+```bash
+# 0. Make a new connector project using the workato SDK CLI
+workato new
+
+# 1. Initialise wisco
+wisco init
+
+# 2. Download an existing connector from Workato (Optional) 
+wisco pull
+
+# 3. Inspect what the connector exposes
+wisco list all
+
+# 4. Test the connection at any time
+wisco exec test
+
+# 5. Generate fixture templates for an action (or: trigger, method, pick_list)
+wisco fixtures actions.get_user
+
+# Fill in execute_input.json, then remove the sentinel comment line
+
+# 6. Execute against live credentials
+wisco exec actions.get_user
+
+# 7. Review output
+cat fixtures/actions/get_user/output_execute_input.json
+
+# 8. Generate input/output schemas from API responses
+wisco schema sample.json
+
+# 9. Publish connector to workato
+wisco push
+
+```
 ---
 
 ## Commands
@@ -182,9 +218,10 @@ wisco exec test                      # test the connection
 wisco exec actions                   # execute all actions
 ```
 
-For each ready `execute_*` file found in the fixture directory, wisco calls the Workato SDK and writes the result to `output_<name>.json`. If execution fails, the error and stack trace are written to `error_<name>.txt`.
+For each ready `execute_*.json` file found in the fixture directory, wisco invokes the method using that file as input and writes the result to `output_<name>.json`. If execution fails, the error and stack trace are written to `error_<name>.txt`.
 
-**Dynamic input via Ruby scripts:** wisco also supports `execute_*.rb` fixtures whose last expression becomes the input. This lets you generate fresh values per run — unique order numbers, current timestamps, randomised test data, or chained lookups that fetch a real ID from the connector itself.
+#### Dynamic input via Ruby scripts
+wisco also supports `execute_*.rb` fixtures whose last expression becomes the input. This lets you generate fresh values per run — unique order numbers, current timestamps, randomised test data, or chained lookups that fetch a real ID from the connector itself.
 
 ```ruby
 # fixtures/actions/create_order/execute_input.rb
@@ -206,13 +243,13 @@ Helpers available inside the script:
 
 Output for each `.rb` script lives in its own subdirectory (`<script_name>/input.json` + `output.json` + `error.txt` on failure) so it doesn't collide with the JSON run output. Skip a script by leaving `# WISCO_SKIP` as its first non-blank line. Scaffold a template with `wisco fixtures <path> --ruby`.
 
-**Options:**
+#### Options:
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--input=file.json` | — | Use a specific input file instead of all `execute_*` files |
 | `--pagination` | `true` | Triggers: `true` = `.poll` (with pagination), `false` = `.poll_page` |
-| `--verbose` | `true` | Enable detailed SDK logging |
+| `--verbose` | `false` | Enable detailed SDK logging |
 | `--extended` | `true` | Auto-pass `input_fields.json`/`output_fields.json` as extended schema for actions/triggers |
 | `--closure=file.json` | — | Closure data file (triggers: simulate a subsequent poll) |
 | `--config-fields=file.json` | — | config_fields data file |
@@ -286,7 +323,7 @@ Requires `workato_developer_api.hostname` and `workato_developer_api.api_token` 
 
 ### `wisco push [target_dir]`
 
-Pushes the connector to the Workato platform.
+Pushes the connector to the Workato platform and releases it.
 
 ```bash
 wisco push
@@ -298,7 +335,7 @@ wisco push --title="My Connector" --notes="Fix pagination bug"
 | `--title` | *(from config or connector file)* | Connector title |
 | `--notes` | *(prompted)* | Version notes |
 | `--folder` | — | Workato folder ID |
-| `--verbose` | `true` | Enable detailed SDK logging |
+| `--verbose` | `false` | Enable detailed SDK logging |
 | `--debug` | `false` | Show push call details |
 
 ---
@@ -326,30 +363,4 @@ fixtures/
 └── connection/
     └── test/
         └── output_test.json       ← written by `wisco exec test`
-```
-
----
-
-## Typical Development Workflow
-
-```bash
-# 1. Set up the project
-wisco init
-
-# 2. Inspect what the connector exposes
-wisco list all
-
-# 3. Generate fixture templates for an action
-wisco fixtures actions.get_user
-
-# 4. Fill in execute_input.json, then remove the sentinel comment line
-
-# 5. Execute against live credentials
-wisco exec actions.get_user
-
-# 6. Review output
-cat fixtures/actions/get_user/output_execute_input.json
-
-# 7. Test the connection at any time
-wisco exec test
 ```

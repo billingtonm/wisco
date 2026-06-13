@@ -90,7 +90,7 @@ module Wisco
     option :input,      type: :string,  desc: 'Specific input file'
     option :pagination, type: :boolean, default: true,
                         desc: 'Triggers only: true = .poll (with pagination), false = .poll_page (without)'
-    option :verbose,    type: :boolean, default: true,  desc: 'Enable detailed SDK logging'
+    option :verbose,    type: :boolean, default: false, desc: 'Enable detailed SDK logging'
     option :extended,   type: :boolean, default: true,
                         desc: 'Auto-pass input_fields/output_fields as extended schema (actions/triggers)'
     option :closure,                  type: :string, desc: 'Closure JSON file (triggers: simulate subsequent polls)'
@@ -149,7 +149,7 @@ module Wisco
     option :title,   type: :string,  desc: 'Connector title (default: from config or connector code)'
     option :notes,   type: :string,  desc: 'Version notes (prompted if not provided)'
     option :folder,  type: :numeric, desc: 'Workato folder ID to push connector into'
-    option :verbose, type: :boolean, default: true,  desc: 'Enable detailed SDK logging'
+    option :verbose, type: :boolean, default: false, desc: 'Enable detailed SDK logging'
     option :debug,   type: :boolean, default: false, desc: 'Show push call details'
     def push(target_dir = nil)
       Wisco::Commands::Push.run(

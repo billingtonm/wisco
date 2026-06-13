@@ -1,4 +1,5 @@
 require 'fileutils'
+require 'tempfile'
 require 'workato/connector/sdk'
 require 'workato/cli/exec_command'
 require_relative '../config'
@@ -11,7 +12,7 @@ module Wisco
     module Exec
       module_function
 
-      def run(path_arg, target_dir, input: nil, pagination: true, verbose: true, debug: false,
+      def run(path_arg, target_dir, input: nil, pagination: true, verbose: false, debug: false,
               extended: true, closure: nil, config_fields: nil, continue: nil,
               extended_input_schema: nil, extended_output_schema: nil)
         target_dir = File.expand_path(target_dir)
@@ -143,7 +144,7 @@ module Wisco
         File.dirname(value) == '.' ? File.join(fixtures_dir, value) : value
       end
 
-      def run_test(target_dir, connector_full_path, connection, verbose: true, debug: false)
+      def run_test(target_dir, connector_full_path, connection, verbose: false, debug: false)
         puts "Testing connection"
         fixtures_dir = File.join(target_dir, 'fixtures', 'connection', 'test')
         FileUtils.mkdir_p(fixtures_dir)
@@ -181,7 +182,7 @@ module Wisco
       end
 
       def execute_one(section, key, input_file, fixtures_dir, connector_full_path, connection,
-                      pagination: true, verbose: true, debug: false,
+                      pagination: true, verbose: false, debug: false,
                       extended: true, closure: nil, config_fields: nil, continue: nil,
                       extended_input_schema: nil, extended_output_schema: nil)
         stem        = input_file ? File.basename(input_file, '.*') : 'execute'
@@ -201,7 +202,11 @@ module Wisco
         options[:connection] = connection if connection
         options[:verbose]    = verbose
         if use_args
-          options[:args] = input_file if input_file
+          if input_file && section == 'methods'
+            options[:args] = normalize_method_args(input_file)
+          elsif input_file
+            options[:args] = input_file
+          end
         else
           options[:input] = input_file
         end
@@ -275,7 +280,7 @@ module Wisco
       # execute_input.rb -> execute_input/.
       def execute_ruby_script(section, key, script_path, fixtures_dir, target_dir,
                               connector_full_path, connection, config,
-                              pagination: true, verbose: true, debug: false,
+                              pagination: true, verbose: false, debug: false,
                               extended: true, closure: nil, config_fields: nil, continue: nil,
                               extended_input_schema: nil, extended_output_schema: nil)
         subdir      = File.join(fixtures_dir, File.basename(script_path, '.rb'))
@@ -320,7 +325,7 @@ module Wisco
         options[:connection] = connection if connection
         options[:verbose]    = verbose
         if use_args
-          options[:args] = input_file
+          options[:args] = section == 'methods' ? normalize_ruby_method_args(input_file) : input_file
         else
           options[:input] = input_file
         end
@@ -378,6 +383,36 @@ module Wisco
         pretty = JSON.pretty_generate(JSON.parse(File.read(output_file)))
         File.write(output_file, pretty + "\n")
         puts "  Written: #{output_file}"
+      end
+
+      # The Workato SDK's InvokePath#invoke_method applies Array.wrap(args.last).flatten(1)
+      # when the last parameter is *args, which incorrectly unwraps array-valued positional
+      # arguments one level too many. These helpers compensate by pre-wrapping Array elements
+      # so that flatten(1) cancels out and the method receives the correct value.
+
+      # For JSON execute_input files (positional-args array format):
+      # [[{h1},{h2}]] → [[[{h1},{h2}]]] so SDK flatten(1) restores [[{h1},{h2}]] → method([{h1},{h2}])
+      def normalize_method_args(input_file)
+        parsed = JSON.parse(File.read(input_file))
+        return input_file unless parsed.is_a?(Array) && parsed.any? { |a| a.is_a?(Array) }
+
+        fixed = parsed.map { |a| a.is_a?(Array) ? [a] : a }
+        tmp = Tempfile.new(['wisco_args_', '.json'])
+        tmp.write(JSON.generate(fixed))
+        tmp.close
+        tmp.path
+      end
+
+      # For Ruby-script-generated input files (direct argument value):
+      # [{h1},{h2}] → [[{h1},{h2}]] so SDK flatten(1) restores [{h1},{h2}] → method([{h1},{h2}])
+      def normalize_ruby_method_args(input_file)
+        parsed = JSON.parse(File.read(input_file))
+        return input_file unless parsed.is_a?(Array)
+
+        tmp = Tempfile.new(['wisco_args_', '.json'])
+        tmp.write(JSON.generate([parsed]))
+        tmp.close
+        tmp.path
       end
     end
   end
