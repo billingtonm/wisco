@@ -12,7 +12,7 @@ module Wisco
     module Exec
       module_function
 
-      def run(path_arg, target_dir, input: nil, pagination: true, verbose: true, debug: false,
+      def run(path_arg, target_dir, input: nil, pagination: true, verbose: false, debug: false,
               extended: true, closure: nil, config_fields: nil, continue: nil,
               extended_input_schema: nil, extended_output_schema: nil)
         target_dir = File.expand_path(target_dir)
@@ -144,7 +144,7 @@ module Wisco
         File.dirname(value) == '.' ? File.join(fixtures_dir, value) : value
       end
 
-      def run_test(target_dir, connector_full_path, connection, verbose: true, debug: false)
+      def run_test(target_dir, connector_full_path, connection, verbose: false, debug: false)
         puts "Testing connection"
         fixtures_dir = File.join(target_dir, 'fixtures', 'connection', 'test')
         FileUtils.mkdir_p(fixtures_dir)
@@ -182,7 +182,7 @@ module Wisco
       end
 
       def execute_one(section, key, input_file, fixtures_dir, connector_full_path, connection,
-                      pagination: true, verbose: true, debug: false,
+                      pagination: true, verbose: false, debug: false,
                       extended: true, closure: nil, config_fields: nil, continue: nil,
                       extended_input_schema: nil, extended_output_schema: nil)
         stem        = input_file ? File.basename(input_file, '.*') : 'execute'
@@ -280,7 +280,7 @@ module Wisco
       # execute_input.rb -> execute_input/.
       def execute_ruby_script(section, key, script_path, fixtures_dir, target_dir,
                               connector_full_path, connection, config,
-                              pagination: true, verbose: true, debug: false,
+                              pagination: true, verbose: false, debug: false,
                               extended: true, closure: nil, config_fields: nil, continue: nil,
                               extended_input_schema: nil, extended_output_schema: nil)
         subdir      = File.join(fixtures_dir, File.basename(script_path, '.rb'))

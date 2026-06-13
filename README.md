@@ -249,7 +249,7 @@ Output for each `.rb` script lives in its own subdirectory (`<script_name>/input
 |--------|---------|-------------|
 | `--input=file.json` | — | Use a specific input file instead of all `execute_*` files |
 | `--pagination` | `true` | Triggers: `true` = `.poll` (with pagination), `false` = `.poll_page` |
-| `--verbose` | `true` | Enable detailed SDK logging |
+| `--verbose` | `false` | Enable detailed SDK logging |
 | `--extended` | `true` | Auto-pass `input_fields.json`/`output_fields.json` as extended schema for actions/triggers |
 | `--closure=file.json` | — | Closure data file (triggers: simulate a subsequent poll) |
 | `--config-fields=file.json` | — | config_fields data file |
@@ -335,7 +335,7 @@ wisco push --title="My Connector" --notes="Fix pagination bug"
 | `--title` | *(from config or connector file)* | Connector title |
 | `--notes` | *(prompted)* | Version notes |
 | `--folder` | — | Workato folder ID |
-| `--verbose` | `true` | Enable detailed SDK logging |
+| `--verbose` | `false` | Enable detailed SDK logging |
 | `--debug` | `false` | Show push call details |
 
 ---
