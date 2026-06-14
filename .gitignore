@@ -7,3 +7,4 @@ pkg/
 # Other interlopers
 .claude/
 .ruby-lsp/
+CLAUDE.md
