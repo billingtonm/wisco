@@ -220,6 +220,8 @@ wisco exec actions                   # execute all actions
 
 For each ready `execute_*.json` file found in the fixture directory, wisco invokes the method using that file as input and writes the result to `output_<name>.json`. If execution fails, the error and stack trace are written to `error_<name>.txt`.
 
+If the fixture directory for an item does not exist, `wisco exec` will automatically run `wisco fixtures` for that item before executing. For pick lists and methods with no parameters this means you can skip the manual `wisco fixtures` step entirely and run `wisco exec` directly.
+
 #### Dynamic input via Ruby scripts
 wisco also supports `execute_*.rb` fixtures whose last expression becomes the input. This lets you generate fresh values per run — unique order numbers, current timestamps, randomised test data, or chained lookups that fetch a real ID from the connector itself.
 
@@ -257,8 +259,20 @@ Output for each `.rb` script lives in its own subdirectory (`<script_name>/input
 | `--extended-input-schema=file.json` | — | Override the auto-detected extended input schema |
 | `--extended-output-schema=file.json` | — | Override the auto-detected extended output schema |
 | `--debug` | `false` | Print ExecCommand call details |
+| `--summary` / `--no-summary` | `true` | Show output summary after each execution |
+| `--summary-lines=N` | `20` | Max output lines to print in full; larger outputs show summary only |
 
 For `--closure`, `--config-fields`, `--continue`, `--extended-input-schema`, and `--extended-output-schema`: if you supply a bare filename (e.g. `closure.json`) it is resolved relative to the item's fixture directory. A path with directory separators is used as-is.
+
+#### Output summary
+
+After each execution, wisco prints a summary to stdout:
+
+- **Small outputs** (≤ `--summary-lines` lines): the full JSON is printed, followed by a type summary line.
+- **Large outputs**: summary line only — e.g. `Array: 47 items — first: {"id": 1002, "name": "Order #1002", ...}` or `Hash: 12 keys — id, name, status, ...`.
+- **Pick lists** (single): items are displayed as a Markdown-compatible table with `Label` and `Value` columns. When running multiple pick lists at once, only a count is shown per list.
+
+Use `--no-summary` to suppress all summary output and revert to `Written: <file>` only.
 
 **Testing a connection:**
 
