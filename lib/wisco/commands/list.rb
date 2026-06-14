@@ -12,8 +12,13 @@ module Wisco
 
       module_function
 
-      def run(subcommand, target, sort: nil)
+      def run(subcommand, target, sort: nil, format: nil)
         validate_sort!(sort)
+
+        if format
+          run_formatted(target, format: format)
+          return
+        end
 
         case subcommand
         when nil        then run_tree(target)
@@ -91,6 +96,69 @@ module Wisco
         puts
         puts '## Triggers'
         run_triggers(target_dir, sort: sort)
+      end
+
+      # ---------------------------------------------------------------------------
+      # Machine-readable output
+      # ---------------------------------------------------------------------------
+
+      def run_formatted(target_dir, format:)
+        require 'yaml' if format.downcase == 'yaml'
+        connector = Wisco::Connector.load_connector_from_config(target_dir)
+        data = build_connector_hash(connector)
+        if format.downcase == 'yaml'
+          puts data.to_yaml
+        else
+          puts JSON.pretty_generate(data)
+        end
+      end
+
+      def build_connector_hash(connector)
+        {
+          'title'      => connector[:title].to_s,
+          'connection' => build_connection(connector[:connection]),
+          'actions'    => build_section(connector[:actions]),
+          'triggers'   => build_section(connector[:triggers]),
+          'methods'    => (connector[:methods]    || {}).keys.map(&:to_s).sort,
+          'pick_lists' => (connector[:pick_lists] || {}).keys.map(&:to_s).sort
+        }
+      end
+
+      def build_connection(conn)
+        return { 'fields' => [] } unless conn.is_a?(Hash)
+
+        fields = conn[:fields] || []
+        { 'fields' => fields.map { |f| safe_serialize(f) }.compact }
+      end
+
+      def build_section(section)
+        return {} unless section.is_a?(Hash)
+
+        section.keys.sort_by(&:to_s).each_with_object({}) do |key, h|
+          item = section[key]
+          h[key.to_s] = {
+            'title'    => title_for(key, item),
+            'subtitle' => subtitle_for(item).to_s
+          }
+        end
+      end
+
+      # Recursively converts a connector value to a JSON-safe structure.
+      # Proc/lambda values are dropped (returned as nil so callers can compact).
+      def safe_serialize(value)
+        case value
+        when Hash
+          value.each_with_object({}) do |(k, v), h|
+            next if v.is_a?(Proc)
+
+            serialized = safe_serialize(v)
+            h[k.to_s] = serialized
+          end
+        when Array  then value.map { |v| safe_serialize(v) }
+        when Proc   then nil
+        when Symbol then value.to_s
+        else             value
+        end
       end
 
       # ---------------------------------------------------------------------------

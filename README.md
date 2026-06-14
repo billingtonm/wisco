@@ -158,9 +158,16 @@ wisco list actions
 wisco list triggers
 wisco list all
 wisco list actions --sort=title
+wisco list --format=json        # machine-readable JSON
+wisco list --format=yaml        # machine-readable YAML
 ```
 
-Option: `--sort=key|title` — sort the actions/triggers table.
+Options:
+
+| Option | Description |
+|--------|-------------|
+| `--sort=key\|title` | Sort the actions/triggers table |
+| `--format=json\|yaml` | Output a machine-readable summary of the entire connector (title, connection fields, actions, triggers, methods, pick lists). Lambdas are stripped. Subcommand is ignored when `--format` is set. |
 
 ---
 
