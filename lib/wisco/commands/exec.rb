@@ -6,6 +6,7 @@ require_relative '../config'
 require_relative '../connector'
 require_relative '../path_utils'
 require_relative '../exec_script'
+require_relative 'fixtures'
 
 module Wisco
   module Commands
@@ -14,7 +15,8 @@ module Wisco
 
       def run(path_arg, target_dir, input: nil, pagination: true, verbose: false, debug: false,
               extended: true, closure: nil, config_fields: nil, continue: nil,
-              extended_input_schema: nil, extended_output_schema: nil)
+              extended_input_schema: nil, extended_output_schema: nil,
+              summary: true, summary_lines: 20)
         target_dir = File.expand_path(target_dir)
         config_path = Wisco.config_path(target_dir)
 
@@ -51,12 +53,12 @@ module Wisco
           fixture_dir_output = fixtures_dir.sub(connector_path, '.')
 
           unless File.directory?(fixtures_dir)
-            Wisco::TerminalOutput.emit_error("Error: fixtures directory not found: #{fixture_dir_output}")
-            Wisco::TerminalOutput.emit_error("       Run '#{Wisco::CLI_NAME} fixtures #{section}.#{key}' first.")
-            next
+            puts "  Auto-setup: running fixtures for #{section}.#{key}"
+            Wisco::Commands::Fixtures.run("#{section}.#{key}", target_dir, debug: debug)
           end
 
           input_files = resolve_input_files(input, fixtures_dir, debug: debug)
+          batch = pairs.length > 1 || input_files.length > 1
 
           if input_files.empty?
             if %w[pick_lists methods].include?(section)
@@ -65,9 +67,14 @@ module Wisco
                           pagination: pagination, verbose: verbose, extended: extended,
                           closure: closure, config_fields: config_fields, continue: continue,
                           extended_input_schema: extended_input_schema,
-                          extended_output_schema: extended_output_schema, debug: debug)
+                          extended_output_schema: extended_output_schema, debug: debug,
+                          summary: summary, summary_lines: summary_lines, batch: batch)
             else
               Wisco::TerminalOutput.emit_warning("  Warning: No ready input files found in #{fixture_dir_output}")
+              input_template = File.join(fixtures_dir, 'execute_input.json')
+              if File.exist?(input_template)
+                Wisco::TerminalOutput.emit_info("           Fill in #{File.join(fixture_dir_output, 'execute_input.json')} and re-run.")
+              end
             end
             next
           end
@@ -79,13 +86,15 @@ module Wisco
                                   pagination: pagination, verbose: verbose,
                                   extended: extended, closure: closure, config_fields: config_fields,
                                   continue: continue, extended_input_schema: extended_input_schema,
-                                  extended_output_schema: extended_output_schema, debug: debug)
+                                  extended_output_schema: extended_output_schema, debug: debug,
+                                  summary: summary, summary_lines: summary_lines, batch: batch)
             else
               execute_one(section, key, input_file, fixtures_dir,
                           connector_full_path, connection, pagination: pagination, verbose: verbose,
                           extended: extended, closure: closure, config_fields: config_fields,
                           continue: continue, extended_input_schema: extended_input_schema,
-                          extended_output_schema: extended_output_schema, debug: debug)
+                          extended_output_schema: extended_output_schema, debug: debug,
+                          summary: summary, summary_lines: summary_lines, batch: batch)
             end
           end
         end
@@ -184,7 +193,8 @@ module Wisco
       def execute_one(section, key, input_file, fixtures_dir, connector_full_path, connection,
                       pagination: true, verbose: false, debug: false,
                       extended: true, closure: nil, config_fields: nil, continue: nil,
-                      extended_input_schema: nil, extended_output_schema: nil)
+                      extended_input_schema: nil, extended_output_schema: nil,
+                      summary: true, summary_lines: 20, batch: false)
         stem        = input_file ? File.basename(input_file, '.*') : 'execute'
         output_file = File.join(fixtures_dir, "output_#{stem}.json")
         error_file  = File.join(fixtures_dir, "error_#{stem}.txt")
@@ -265,12 +275,14 @@ module Wisco
         end
 
         FileUtils.rm_f(error_file)
-
         return unless File.exist?(output_file)
 
-        pretty = JSON.pretty_generate(JSON.parse(File.read(output_file)))
+        parsed = JSON.parse(File.read(output_file))
+        pretty = JSON.pretty_generate(parsed)
         File.write(output_file, pretty + "\n")
         puts "  Written: #{output_file}"
+        display_output_summary(parsed, pretty, section: section, summary: summary,
+                               summary_lines: summary_lines, batch: batch)
       end
 
       # Handles `execute_*.rb` scripts: evaluates the script to produce dynamic
@@ -282,7 +294,8 @@ module Wisco
                               connector_full_path, connection, config,
                               pagination: true, verbose: false, debug: false,
                               extended: true, closure: nil, config_fields: nil, continue: nil,
-                              extended_input_schema: nil, extended_output_schema: nil)
+                              extended_input_schema: nil, extended_output_schema: nil,
+                              summary: true, summary_lines: 20, batch: false)
         subdir      = File.join(fixtures_dir, File.basename(script_path, '.rb'))
         FileUtils.mkdir_p(subdir)
         input_file  = File.join(subdir, 'input.json')
@@ -377,14 +390,88 @@ module Wisco
         end
 
         FileUtils.rm_f(error_file)
-
         return unless File.exist?(output_file)
 
-        pretty = JSON.pretty_generate(JSON.parse(File.read(output_file)))
+        parsed = JSON.parse(File.read(output_file))
+        pretty = JSON.pretty_generate(parsed)
         File.write(output_file, pretty + "\n")
         puts "  Written: #{output_file}"
+        display_output_summary(parsed, pretty, section: section, summary: summary,
+                               summary_lines: summary_lines, batch: batch)
       end
 
+      # ── Output summary ─────────────────────────────────────────────────────
+
+      def display_output_summary(parsed, pretty, section:, summary:, summary_lines:, batch:)
+        return unless summary
+
+        if section == 'pick_lists'
+          if batch
+            count = parsed.is_a?(Array) ? parsed.length : '?'
+            puts "  Items: #{count}"
+          else
+            display_pick_list_table(parsed)
+          end
+          return
+        end
+
+        puts pretty if !batch && pretty.lines.length <= (summary_lines || 20)
+        puts "  #{format_summary(parsed)}"
+      end
+
+      def display_pick_list_table(data)
+        unless data.is_a?(Array) && !data.empty?
+          puts '  (empty)'
+          return
+        end
+
+        rows = data.select { |item| item.is_a?(Array) && item.length >= 2 }
+
+        if rows.empty?
+          puts "  Items: #{data.length} (unexpected format)"
+          return
+        end
+
+        max_col = 60
+        labels  = rows.map { |item| truncate_str(item[0].to_s, max_col) }
+        values  = rows.map { |item| truncate_str(item[1].to_s, max_col) }
+
+        col1_w = [labels.map(&:length).max, 'Label'.length].max
+        col2_w = [values.map(&:length).max, 'Value'.length].max
+        num_w  = rows.length.to_s.length
+
+        puts "  Items: #{rows.length}"
+        puts "  | #{'#'.ljust(num_w)} | #{'Label'.ljust(col1_w)} | #{'Value'.ljust(col2_w)} |"
+        puts "  |#{'-' * (num_w + 2)}|#{'-' * (col1_w + 2)}|#{'-' * (col2_w + 2)}|"
+        rows.each_with_index do |_, i|
+          puts "  | #{(i + 1).to_s.ljust(num_w)} | #{labels[i].ljust(col1_w)} | #{values[i].ljust(col2_w)} |"
+        end
+      end
+
+      def format_summary(parsed)
+        case parsed
+        when Array
+          return 'Array: 0 items' if parsed.empty?
+          first_str = parsed.first.inspect
+          first_str = "#{first_str[0, 97]}…" if first_str.length > 100
+          "Array: #{parsed.length} #{parsed.length == 1 ? 'item' : 'items'} — first: #{first_str}"
+        when Hash
+          return 'Hash: 0 keys' if parsed.empty?
+          keys   = parsed.keys.first(20)
+          suffix = parsed.keys.length > 20 ? " (+#{parsed.keys.length - 20} more)" : ''
+          "Hash: #{parsed.keys.length} keys — #{keys.join(', ')}#{suffix}"
+        when NilClass
+          '(nil)'
+        else
+          "Value: #{parsed.inspect}"
+        end
+      end
+
+      def truncate_str(str, max)
+        str.length > max ? "#{str[0, max - 1]}…" : str
+      end
+
+      # ── SDK array-args normalisation ───────────────────────────────────────
       # The Workato SDK's InvokePath#invoke_method applies Array.wrap(args.last).flatten(1)
       # when the last parameter is *args, which incorrectly unwraps array-valued positional
       # arguments one level too many. These helpers compensate by pre-wrapping Array elements

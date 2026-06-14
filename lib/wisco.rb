@@ -98,7 +98,9 @@ module Wisco
     option :continue,                 type: :string, desc: 'Continue JSON file (multistep actions)'
     option :'extended-input-schema',  type: :string, desc: 'Extended input schema JSON (overrides --extended auto-detection)'
     option :'extended-output-schema', type: :string, desc: 'Extended output schema JSON (overrides --extended auto-detection)'
-    option :debug,      type: :boolean, default: false, desc: 'Print ExecCommand call details'
+    option :debug,         type: :boolean, default: false, desc: 'Print ExecCommand call details'
+    option :summary,       type: :boolean, default: true,  desc: 'Show output summary after execution (use --no-summary to disable)'
+    option :'summary-lines', type: :numeric, default: 20,  desc: 'Max output lines to display in full before switching to summary-only'
     def exec(path_arg, target_dir = nil)
       Wisco::Commands::Exec.run(
         path_arg,
@@ -112,7 +114,9 @@ module Wisco
         continue:               options[:continue],
         extended_input_schema:  options[:extended_input_schema],
         extended_output_schema: options[:extended_output_schema],
-        debug:                  options[:debug]
+        debug:                  options[:debug],
+        summary:                options[:summary],
+        summary_lines:          options[:'summary-lines']
       )
     end
 

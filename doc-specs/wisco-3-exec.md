@@ -57,7 +57,7 @@ This mode does support `--verbose`.
 | target_dir   | No       | Directory containing `.wisco.json`. Defaults to current directory.
 | --input      | No       | Specifies a specific input file from `./fixtures/actions/<action>/` to use as parameters. If not specified, each file beginning with `execute_` that does not have the sentinel line will be executed. 
 | --debug      | No       | Optional debugging. |
-| --verbose    | No       | default: `true`. Passed along to the `verbose` option in `ExecCommand`
+| --verbose    | No       | default: `false`. Passed along to the `verbose` option in `ExecCommand`
 | --pagination | No       | default: `true`. When executing triggers, pass `false` to cause workato SDK to ignore the value of can_poll_more. See [here for details](https://docs.workato.com/en/developing-connectors/sdk/cli/guides/cli/triggers#running-your-poll-lambda-without-pagination).
 | --extended   | No       | default: `true`. (New in wisco 0.3.3) When `true` wisco will supply the `--extended_input_fields` and `--extended_output_fields` parameters automatically. Set to `false` to disable this behaviour.
 
