@@ -167,7 +167,7 @@ Options:
 | Option | Description |
 |--------|-------------|
 | `--sort=key\|title` | Sort the actions/triggers table |
-| `--format=json\|yaml` | Output a machine-readable summary of the entire connector (title, connection fields, actions, triggers, methods, pick lists). Lambdas are stripped. Subcommand is ignored when `--format` is set. |
+| `--format=json\|yaml` | Output the complete connector structure as JSON or YAML. All lambda values are serialized as either `"__is_lambda__"` (most sections) or as `{ "parameters": [...] }` arrays for methods and pick_lists. All sections are sorted alphabetically by key. Intended for machine consumption (e.g., VS Code extension). Subcommand is ignored when `--format` is set. |
 
 ---
 

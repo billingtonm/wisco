@@ -114,50 +114,51 @@ module Wisco
       end
 
       def build_connector_hash(connector)
-        {
-          'title'      => connector[:title].to_s,
-          'connection' => build_connection(connector[:connection]),
-          'actions'    => build_section(connector[:actions]),
-          'triggers'   => build_section(connector[:triggers]),
-          'methods'    => (connector[:methods]    || {}).keys.map(&:to_s).sort,
-          'pick_lists' => (connector[:pick_lists] || {}).keys.map(&:to_s).sort
-        }
+        # Full connector serialization with context-aware lambda handling
+        data = serialize_value(connector, context: :root)
+
+        # Post-process object_definitions: convert Hash to sorted array of keys
+        if data.is_a?(Hash) && data['object_definitions'].is_a?(Hash)
+          data['object_definitions'] = data['object_definitions'].keys.map(&:to_s).sort
+        end
+
+        data
       end
 
-      def build_connection(conn)
-        return { 'fields' => [] } unless conn.is_a?(Hash)
-
-        fields = conn[:fields] || []
-        { 'fields' => fields.map { |f| safe_serialize(f) }.compact }
-      end
-
-      def build_section(section)
-        return {} unless section.is_a?(Hash)
-
-        section.keys.sort_by(&:to_s).each_with_object({}) do |key, h|
-          item = section[key]
-          h[key.to_s] = {
-            'title'    => title_for(key, item),
-            'subtitle' => subtitle_for(item).to_s
-          }
+      def serialize_value(value, context: nil)
+        case value
+        when Proc
+          case context
+          when :methods, :pick_lists
+            # Extract parameter info; format type as string
+            {
+              'parameters' => value.parameters.map { |type, name| [type.to_s, name.to_s] }
+            }
+          else
+            # All other lambdas become "__is_lambda__" string
+            '__is_lambda__'
+          end
+        when Hash
+          # Recursively serialize each key-value pair, tracking context
+          value.each_with_object({}) do |(k, v), h|
+            next_context = determine_context(k, context)
+            h[k.to_s] = serialize_value(v, context: next_context)
+          end
+        when Array
+          value.map { |v| serialize_value(v, context: context) }
+        when Symbol
+          value.to_s
+        else
+          value
         end
       end
 
-      # Recursively converts a connector value to a JSON-safe structure.
-      # Proc/lambda values are dropped (returned as nil so callers can compact).
-      def safe_serialize(value)
-        case value
-        when Hash
-          value.each_with_object({}) do |(k, v), h|
-            next if v.is_a?(Proc)
-
-            serialized = safe_serialize(v)
-            h[k.to_s] = serialized
-          end
-        when Array  then value.map { |v| safe_serialize(v) }
-        when Proc   then nil
-        when Symbol then value.to_s
-        else             value
+      def determine_context(key, parent_context)
+        # When traversing into :methods or :pick_lists hashes, set context for param extraction
+        case key
+        when :methods then :methods
+        when :pick_lists then :pick_lists
+        else parent_context
         end
       end
 
