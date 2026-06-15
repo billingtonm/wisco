@@ -342,6 +342,36 @@ Requires `workato_developer_api.hostname` and `workato_developer_api.api_token` 
 
 ---
 
+### `wisco status [path]`
+
+Reports the wisco state of the current directory as a JSON payload. Intended for use by the Wisco VS Code extension. Always exits 0 — check the `initialized` field to determine project state.
+
+```bash
+wisco status
+wisco status ./my-connector
+```
+
+**Output fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `wisco_version` | string | Installed wisco version |
+| `initialized` | boolean | `true` if `.wisco/config.json` exists with a valid connector entry |
+| `config_path` | string\|null | Absolute path to `.wisco/config.json` |
+| `profile.name` | string\|null | Attached profile name, or `null` if using inline credentials |
+| `hostname` | string\|null | Effective Workato API hostname |
+| `connection` | string\|null | Named connection in use |
+| `connector.path` | string\|null | Absolute path to the connector `.rb` file |
+| `connector.valid` | boolean\|null | Whether the connector loaded without errors |
+| `connector.title` | string\|null | Connector title from the `title:` key |
+| `connector.error` | string\|null | Load error message if `valid` is `false` |
+| `credentials.present` | boolean\|null | Whether `settings.yaml` or `settings.yaml.enc` exists |
+| `credentials.encrypted` | boolean\|null | `true` if only the encrypted form is present |
+
+When `initialized` is `false`, all fields except `wisco_version` are `null`.
+
+---
+
 ### `wisco push [target_dir]`
 
 Pushes the connector to the Workato platform and releases it.
