@@ -25,6 +25,7 @@ require_relative 'wisco/commands/pull'
 require_relative 'wisco/commands/push'
 require_relative 'wisco/commands/schema'
 require_relative 'wisco/commands/profile'
+require_relative 'wisco/commands/status'
 
 module Wisco
   class CLI < Thor
@@ -188,6 +189,16 @@ module Wisco
         title: options[:title],
         debug: options[:debug]
       )
+    end
+
+    desc 'status [PATH]', 'Report wisco project status as JSON (for tooling)'
+    long_desc <<~DESC
+      Outputs a JSON payload describing the wisco state of the current directory.
+      Intended for use by the Wisco VS Code extension.
+      Always exits 0; check the "initialized" field to determine project state.
+    DESC
+    def status(path = nil)
+      Wisco::Commands::Status.run(path || Dir.pwd)
     end
 
     desc 'profile SUBCOMMAND ...ARGS', 'Manage connection profiles (~/.wisco/profiles.yaml)'
