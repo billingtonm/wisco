@@ -103,6 +103,7 @@ module Wisco
     option :debug,         type: :boolean, default: false, desc: 'Print ExecCommand call details'
     option :summary,       type: :boolean, default: true,  desc: 'Show output summary after execution (use --no-summary to disable)'
     option :'summary-lines', type: :numeric, default: 20,  desc: 'Max output lines to display in full before switching to summary-only'
+    option :'auto-refresh', type: :boolean, default: true,  desc: 'Automatically confirm token refresh prompts (use --no-auto-refresh to disable)'
     def exec(path_arg, target_dir = nil)
       Wisco::Commands::Exec.run(
         path_arg,
@@ -118,7 +119,8 @@ module Wisco
         extended_output_schema: options[:extended_output_schema],
         debug:                  options[:debug],
         summary:                options[:summary],
-        summary_lines:          options[:'summary-lines']
+        summary_lines:          options[:'summary-lines'],
+        auto_refresh:           options[:'auto-refresh']
       )
     end
 

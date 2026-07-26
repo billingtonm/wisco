@@ -268,6 +268,7 @@ Output for each `.rb` script lives in its own subdirectory (`<script_name>/input
 | `--debug` | `false` | Print ExecCommand call details |
 | `--summary` / `--no-summary` | `true` | Show output summary after each execution |
 | `--summary-lines=N` | `20` | Max output lines to print in full; larger outputs show summary only |
+| `--auto-refresh` / `--no-auto-refresh` | `true` | Automatically confirm token refresh prompts. When enabled, wisco answers "y" to the SDK's "save updated credentials?" question so the refreshed token is persisted to `settings.yaml` without interrupting the run. Use `--no-auto-refresh` to handle the prompt manually. |
 
 For `--closure`, `--config-fields`, `--continue`, `--extended-input-schema`, and `--extended-output-schema`: if you supply a bare filename (e.g. `closure.json`) it is resolved relative to the item's fixture directory. A path with directory separators is used as-is.
 

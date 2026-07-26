@@ -16,7 +16,7 @@ module Wisco
       def run(path_arg, target_dir, input: nil, pagination: true, verbose: false, debug: false,
               extended: true, closure: nil, config_fields: nil, continue: nil,
               extended_input_schema: nil, extended_output_schema: nil,
-              summary: true, summary_lines: 20)
+              summary: true, summary_lines: 20, auto_refresh: true)
         target_dir = File.expand_path(target_dir)
         config_path = Wisco.config_path(target_dir)
 
@@ -40,7 +40,8 @@ module Wisco
 
         # ── connection test short-circuit ──────────────────────────────────
         if path_arg == 'test'
-          run_test(target_dir, connector_full_path, connection, verbose: verbose, debug: debug)
+          run_test(target_dir, connector_full_path, connection, verbose: verbose, debug: debug,
+                   auto_refresh: auto_refresh)
           return
         end
 
@@ -68,7 +69,8 @@ module Wisco
                           closure: closure, config_fields: config_fields, continue: continue,
                           extended_input_schema: extended_input_schema,
                           extended_output_schema: extended_output_schema, debug: debug,
-                          summary: summary, summary_lines: summary_lines, batch: batch)
+                          summary: summary, summary_lines: summary_lines, batch: batch,
+                          auto_refresh: auto_refresh)
             else
               Wisco::TerminalOutput.emit_warning("  Warning: No ready input files found in #{fixture_dir_output}")
               input_template = File.join(fixtures_dir, 'execute_input.json')
@@ -87,14 +89,16 @@ module Wisco
                                   extended: extended, closure: closure, config_fields: config_fields,
                                   continue: continue, extended_input_schema: extended_input_schema,
                                   extended_output_schema: extended_output_schema, debug: debug,
-                                  summary: summary, summary_lines: summary_lines, batch: batch)
+                                  summary: summary, summary_lines: summary_lines, batch: batch,
+                                  auto_refresh: auto_refresh)
             else
               execute_one(section, key, input_file, fixtures_dir,
                           connector_full_path, connection, pagination: pagination, verbose: verbose,
                           extended: extended, closure: closure, config_fields: config_fields,
                           continue: continue, extended_input_schema: extended_input_schema,
                           extended_output_schema: extended_output_schema, debug: debug,
-                          summary: summary, summary_lines: summary_lines, batch: batch)
+                          summary: summary, summary_lines: summary_lines, batch: batch,
+                          auto_refresh: auto_refresh)
             end
           end
         end
@@ -153,7 +157,8 @@ module Wisco
         File.dirname(value) == '.' ? File.join(fixtures_dir, value) : value
       end
 
-      def run_test(target_dir, connector_full_path, connection, verbose: false, debug: false)
+      def run_test(target_dir, connector_full_path, connection, verbose: false, debug: false,
+                   auto_refresh: true)
         puts "Testing connection"
         fixtures_dir = File.join(target_dir, 'fixtures', 'connection', 'test')
         FileUtils.mkdir_p(fixtures_dir)
@@ -174,6 +179,7 @@ module Wisco
 
         begin
           cmd = Workato::CLI::ExecCommand.new(path: 'test', options: options)
+          apply_auto_refresh(cmd) if auto_refresh
           cmd.call
         rescue StandardError => e
           File.write(error_file, "#{e.class}: #{e.message}\n\n#{e.backtrace.join("\n")}\n")
@@ -194,7 +200,7 @@ module Wisco
                       pagination: true, verbose: false, debug: false,
                       extended: true, closure: nil, config_fields: nil, continue: nil,
                       extended_input_schema: nil, extended_output_schema: nil,
-                      summary: true, summary_lines: 20, batch: false)
+                      summary: true, summary_lines: 20, batch: false, auto_refresh: true)
         stem        = input_file ? File.basename(input_file, '.*') : 'execute'
         output_file = File.join(fixtures_dir, "output_#{stem}.json")
         error_file  = File.join(fixtures_dir, "error_#{stem}.txt")
@@ -265,6 +271,7 @@ module Wisco
 
         begin
           cmd = Workato::CLI::ExecCommand.new(path: exec_path, options: options)
+          apply_auto_refresh(cmd) if auto_refresh
           cmd.call
         rescue StandardError => e
           FileUtils.rm_f(output_file)
@@ -295,7 +302,7 @@ module Wisco
                               pagination: true, verbose: false, debug: false,
                               extended: true, closure: nil, config_fields: nil, continue: nil,
                               extended_input_schema: nil, extended_output_schema: nil,
-                              summary: true, summary_lines: 20, batch: false)
+                              summary: true, summary_lines: 20, batch: false, auto_refresh: true)
         subdir      = File.join(fixtures_dir, File.basename(script_path, '.rb'))
         FileUtils.mkdir_p(subdir)
         input_file  = File.join(subdir, 'input.json')
@@ -379,6 +386,7 @@ module Wisco
         # Step 3: invoke ExecCommand against the generated input
         begin
           cmd = Workato::CLI::ExecCommand.new(path: exec_path, options: options)
+          apply_auto_refresh(cmd) if auto_refresh
           cmd.call
         rescue StandardError => e
           FileUtils.rm_f(input_file)
@@ -469,6 +477,14 @@ module Wisco
 
       def truncate_str(str, max)
         str.length > max ? "#{str[0, max - 1]}…" : str
+      end
+
+      # Overrides ask() on the ExecCommand singleton so the SDK's token-refresh
+      # prompt ("Updated settings file with new connection attributes? (Yes or No)")
+      # is answered "y" automatically. The refresh lambda captures self (the
+      # ExecCommand instance), so the singleton method wins over Thor::Shell::Basic.
+      def apply_auto_refresh(cmd)
+        cmd.define_singleton_method(:ask) { |*| 'y' }
       end
 
       # ── SDK array-args normalisation ───────────────────────────────────────
