@@ -141,6 +141,45 @@ Profiles are stored in `~/.wisco/profiles.yaml`. Existing projects with inline c
 
 ---
 
+### `wisco settings <subcommand>`
+
+Manages the connector's **settings file** — the credentials used to connect to the *target service* (Shopify, Salesforce, etc.). This is the SDK's `settings.yaml` (plaintext) or `settings.yaml.enc` (encrypted), stored in the connector directory. It is distinct from `wisco profile`, which manages your Workato Developer API token.
+
+A settings file can hold a single connection set (flat) or multiple named sets (nested). The active set for `wisco exec` / `wisco fixtures` is selected by the `connection` key in `.wisco/config.json`.
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List the connection sets in the settings file (marks the active one) |
+| `set <connection>` | Point `.wisco/config.json`'s `connection` key at a set |
+| `add <connection>` | Scaffold a new named set with blank values, using field names from the connector's `connection.fields` |
+| `show [<connection>]` | Show a set's field values (password fields masked). `<connection>` is optional for single-set files |
+| `current` | Show which connection set this project points at, and whether it exists |
+| `fields` | List the connection fields the connector defines |
+
+```bash
+wisco settings list
+wisco settings list --format=json      # JSON array of set names
+wisco settings set production
+wisco settings add sandbox             # scaffolds blank fields from the connector
+wisco settings show production         # passwords masked
+wisco settings show production --format=json   # fields with current values (unmasked)
+wisco settings current
+wisco settings fields
+wisco settings fields --format=json    # connection.fields as JSON
+```
+
+**Encryption.** wisco auto-detects the file form: it reads/writes `settings.yaml.enc` when present, otherwise `settings.yaml`. Encrypted files need the master key, resolved from the `WORKATO_CONNECTOR_MASTER_KEY` environment variable or a `master.key` file in the connector directory. If an encrypted operation needs the key and none is found, wisco reports it and stops. A brand-new settings file created by `add` is written in plaintext (`settings.yaml`); run `workato edit` once first if you want the encrypted form.
+
+**`add` and structure.** `add <connection>` always writes a *named* (nested) set. If the file currently holds a single unnamed (flat) set, wisco prompts you to name it so the file can be migrated to the nested format. Values are scaffolded as blank strings — fill them in with `workato edit`. `add` never overwrites an existing set.
+
+Options:
+
+| Option | Applies to | Description |
+|--------|------------|-------------|
+| `--format=json` | `list`, `fields`, `show` | Machine-readable output — `list` emits an array of set names; `fields` emits the `connection.fields` array; `show` emits `connection.fields` with each field's current `value` (unmasked, `null` when unset) |
+
+---
+
 ### `wisco list [subcommand] [path]`
 
 Inspects a connector's structure without executing anything.

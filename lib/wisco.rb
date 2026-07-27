@@ -25,6 +25,7 @@ require_relative 'wisco/commands/pull'
 require_relative 'wisco/commands/push'
 require_relative 'wisco/commands/schema'
 require_relative 'wisco/commands/profile'
+require_relative 'wisco/commands/settings'
 require_relative 'wisco/commands/status'
 
 module Wisco
@@ -216,6 +217,18 @@ module Wisco
         current        Show which profile this project is using
     DESC
     subcommand 'profile', Wisco::Commands::Profile
+
+    desc 'settings SUBCOMMAND ...ARGS', 'Manage the connector settings file (credential sets)'
+    long_desc <<~DESC
+      Subcommands:
+        list                 List connection sets (--format=json for a JSON array of names)
+        set <connection>     Set the project's active connection set
+        add <connection>     Scaffold a new connection set from connector.connection.fields
+        show [<connection>]  Show a connection set's field values (passwords masked)
+        current              Show which connection set the project points at
+        fields               List the connector's connection fields (--format=json for JSON)
+    DESC
+    subcommand 'settings', Wisco::Commands::Settings
 
     desc 'schema INPUT_FILE [TARGET_DIR]', 'Generate a schema from a JSON or CSV sample file'
     long_desc <<~DESC
